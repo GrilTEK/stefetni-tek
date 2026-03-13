@@ -256,6 +256,7 @@
   </div>
 </div>
 
+<script src="/src/utils/native.js"></script>
 <script src="/src/utils/shared.js?v=3"></script>
 <script>
 const { token, apiFetch, offlineQueue, GPSTracker, BLEScanner, WS_BASE, notify, requestNotifications } = window.ST;
@@ -460,7 +461,11 @@ async function copyBLECode() {
   const code = document.getElementById("ble-code-display").textContent;
   if (code === "ST-??") return;
   try {
-    await navigator.clipboard.writeText(code);
+    if (window.STNative?.isNative?.()) {
+      await window.STNative.nativeClipboardWrite(code);
+    } else {
+      await navigator.clipboard.writeText(code);
+    }
     const btn = document.querySelector(".ble-copy-btn");
     const prev = btn.textContent;
     btn.textContent = "✓ Kopirano!";

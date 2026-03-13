@@ -1,0 +1,25 @@
+node_modules/
+
+# Android build artifacts (keep the project, not build output)
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/local.properties
+
+# iOS build artifacts
+ios/App/Pods/
+ios/App/build/
+ios/.xcode.env.local
+
+# Capacitor cache
+.capacitor/
+
+# Release signing (NEVER commit keystore)
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+
+# Env
+.env

@@ -230,6 +230,7 @@
 </div>
 
 <script src="/lib/leaflet.js"></script>
+<script src="/src/utils/native.js"></script>
 <script src="/src/utils/shared.js?v=3"></script>
 <script>
 const { token, apiFetch, GPSTracker, ReconnectingWS, haversine, notify, requestNotifications, WS_BASE } = window.ST;
@@ -548,9 +549,45 @@ function findGroupByBLEName(name) {
 
 async function toggleBLEScan() {
   if (bleScanActive) { stopBLEScan(); return; }
+
+  // Native path: use @capacitor-community/bluetooth-le
+  if (window.STNative?.isNative?.()) {
+    const scanner = new window.STNative.NativeBLEScanner(function(beacon) {
+      const id = beacon.id;
+      const name = beacon.name || null;
+      const rssi = beacon.rssi ?? null;
+      const matchedGroup = findGroupByBLEName(name);
+      bleDevices[id] = { name: name || id.slice(-8), rssi, lastSeen: Date.now(), matchedGroup };
+      renderBLEPanel();
+      if (matchedGroup && followingGroupId !== matchedGroup.id && rssi && rssi > -70) {
+        if (confirm(`BLE: Zaznana skupina ${matchedGroup.number} (signal: ${rssi} dBm)\nZačni slediti?`)) {
+          setFollowGroup(matchedGroup.id);
+        }
+      }
+    });
+    if (!scanner.isSupported()) {
+      alert("Bluetooth LE ni podprt na tej napravi.");
+      return;
+    }
+    bleDevices = {};
+    document.getElementById("ble-panel").classList.add("show");
+    document.getElementById("ble-toggle-btn").classList.add("active");
+    document.getElementById("ble-toggle-btn").textContent = "📶 Ustavi";
+    bleScanActive = true;
+    const started = await scanner.startScan();
+    if (started) {
+      bleScanHandle = scanner;
+      renderBLEPanel("Nativno BLE skeniranje aktivno…");
+    } else {
+      stopBLEScan();
+      alert("BLE skeniranje ni uspelo.");
+    }
+    return;
+  }
+
+  // Web Bluetooth path
   if (!navigator.bluetooth) {
-    alert("Bluetooth ni podprt v tem brskalniku.
-Uporabi Chrome na Androidu.");
+    alert("Bluetooth ni podprt v tem brskalniku.\nUporabi Chrome na Androidu.");
     return;
   }
   bleDevices = {};
@@ -575,7 +612,16 @@ Uporabi Chrome na Androidu.");
 
 function stopBLEScan() {
   bleScanActive = false;
-  if (bleScanHandle) { try { bleScanHandle.stop(); } catch {} bleScanHandle = null; }
+  if (bleScanHandle) {
+    try {
+      if (typeof bleScanHandle.stopScan === "function") {
+        bleScanHandle.stopScan(); // NativeBLEScanner
+      } else if (typeof bleScanHandle.stop === "function") {
+        bleScanHandle.stop(); // Web BLE scan handle
+      }
+    } catch {}
+    bleScanHandle = null;
+  }
   navigator.bluetooth?.removeEventListener?.("advertisementreceived", onBLEAdvertisement);
   document.getElementById("ble-panel").classList.remove("show");
   document.getElementById("ble-toggle-btn").classList.remove("active");

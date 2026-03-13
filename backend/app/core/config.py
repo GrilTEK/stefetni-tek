@@ -15,7 +15,15 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> List[str]:
         if self.CORS_ORIGINS == "*":
             return ["*"]
-        return [o.strip() for o in self.CORS_ORIGINS.split(",")]
+        cap = ["capacitor://localhost", "http://localhost", "ionic://localhost"]
+        configured = [o.strip() for o in self.CORS_ORIGINS.split(",")]
+        seen: set = set()
+        result: List[str] = []
+        for o in cap + configured:
+            if o not in seen:
+                seen.add(o)
+                result.append(o)
+        return result
 
     class Config:
         env_file = ".env"

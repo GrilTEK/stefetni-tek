@@ -1,6 +1,8 @@
 (function() {
-const API_BASE = window.location.origin + "/api";
-const WS_BASE = window.location.origin.replace(/^http/, "ws");
+const _nApi = window.STNative?.resolveApiBase?.();
+const API_BASE = (_nApi || window.location.origin) + "/api";
+const _nWs = window.STNative?.resolveWsBase?.();
+const WS_BASE = _nWs || window.location.origin.replace(/^http/, "ws");
 
 const token = {
   get: () => localStorage.getItem("st_token"),
@@ -46,41 +48,43 @@ class OfflineQueue {
   }
 }
 
-class GPSTracker {
-  constructor(onLocation, onError) { this.onLocation = onLocation; this.onError = onError; this.watchId = null; }
-  start() {
-    if (!window.isSecureContext) {
-      this.onError?.("GPS zahteva HTTPS – odpri stran prek https://");
-      return;
-    }
-    if (!navigator.geolocation) {
-      this.onError?.("GPS ni na voljo v tem brskalniku");
-      return;
-    }
-    this.watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng, accuracy, altitude } = pos.coords;
-        this.onLocation({ lat, lng, accuracy, altitude, timestamp: new Date().toISOString(), source: "gps" });
-      },
-      (err) => {
-        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-        const msg = err.code === 1
-          ? (isIOS ? "Dostop zavrnjen – pojdi na Nastavitve > Zasebnost > Lokacijske storitve > Safari > Dovoli"
-                   : "Dostop do GPS zavrnjen – preveri dovoljenja brskalnika")
-          : err.code === 2
-          ? (isIOS ? "Lokacija ni dosegljiva – omogoči Lokacijske storitve v iOS Nastavitvah"
-                   : "GPS signal ni dosegljiv")
-          : err.code === 3
-          ? "GPS se ni odzval – premakni se na prosto"
-          : (err.message || "Neznana GPS napaka");
-        this.onError?.(msg);
-      },
-      { enableHighAccuracy: true, timeout: Infinity, maximumAge: 5000 }
-    );
-  }
-  stop() { if (this.watchId !== null) { navigator.geolocation.clearWatch(this.watchId); this.watchId = null; } }
-  get active() { return this.watchId !== null; }
+function GPSTracker(onLocation, onError) {
+  if (window.STNative?.isNative?.())
+    return new window.STNative.NativeGPSTracker(onLocation, onError);
+  this.onLocation = onLocation; this.onError = onError; this.watchId = null;
 }
+GPSTracker.prototype.start = function() {
+  if (!window.isSecureContext) {
+    this.onError?.("GPS zahteva HTTPS – odpri stran prek https://");
+    return;
+  }
+  if (!navigator.geolocation) {
+    this.onError?.("GPS ni na voljo v tem brskalniku");
+    return;
+  }
+  this.watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const { latitude: lat, longitude: lng, accuracy, altitude } = pos.coords;
+      this.onLocation({ lat, lng, accuracy, altitude, timestamp: new Date().toISOString(), source: "gps" });
+    },
+    (err) => {
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const msg = err.code === 1
+        ? (isIOS ? "Dostop zavrnjen – pojdi na Nastavitve > Zasebnost > Lokacijske storitve > Safari > Dovoli"
+                 : "Dostop do GPS zavrnjen – preveri dovoljenja brskalnika")
+        : err.code === 2
+        ? (isIOS ? "Lokacija ni dosegljiva – omogoči Lokacijske storitve v iOS Nastavitvah"
+                 : "GPS signal ni dosegljiv")
+        : err.code === 3
+        ? "GPS se ni odzval – premakni se na prosto"
+        : (err.message || "Neznana GPS napaka");
+      this.onError?.(msg);
+    },
+    { enableHighAccuracy: true, timeout: Infinity, maximumAge: 5000 }
+  );
+};
+GPSTracker.prototype.stop = function() { if (this.watchId !== null) { navigator.geolocation.clearWatch(this.watchId); this.watchId = null; } };
+Object.defineProperty(GPSTracker.prototype, "active", { get: function() { return this.watchId !== null; } });
 
 class BLEScanner {
   constructor(onBeacon) { this.onBeacon = onBeacon; }
@@ -133,10 +137,12 @@ function haversine(lat1, lng1, lat2, lng2) {
 }
 
 async function requestNotifications() {
+  if (window.STNative?.isNative?.()) return window.STNative.nativeRequestNotifications();
   if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission();
 }
 
 function notify(title, body, tag = "alert") {
+  if (window.STNative?.isNative?.()) { window.STNative.nativeNotify(title, body); return; }
   if (Notification.permission === "granted") new Notification(title, { body, tag, icon: "/icon.png" });
 }
 
