@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fotografi – Štafetni Tek</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue: #3b82f6; --bg: #060a10; --surface: #0d1520; --surface2: #111d2b;
+    --border: #1e3048; --text: #e2edff; --muted: #4a6785;
+    --green: #22c55e; --red: #ef4444; --amber: #f59e0b;
+  }
+  [data-theme="light"] {
+    --bg: #f0f4ff; --surface: #ffffff; --surface2: #e8eeff;
+    --border: #c5d3f0; --text: #0f1a3a; --muted: #4a6785;
+  }
+  html, body { transition: background 0.3s, color 0.3s; }
+  #theme-btn-pg { background:transparent; border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--muted); cursor:pointer; font-size:0.85rem; }
+  #theme-btn-pg:hover { color:var(--text); border-color:var(--muted); }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: 'Space Grotesk', sans-serif; min-height: 100%; }
+  .header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10;
+  }
+  .header h1 { font-family: 'Barlow Condensed', sans-serif; font-size: 1.4rem; font-weight: 900; color: var(--amber); flex: 1; }
+  .btn { padding: 9px 16px; border: none; border-radius: 8px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.83rem; cursor: pointer; transition: all 0.15s; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+  .btn-primary { background: var(--blue); color: white; }
+  .btn-success { background: #16a34a; color: white; }
+  .btn-danger { background: var(--red); color: white; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .btn-outline:hover { color: var(--text); border-color: var(--muted); }
+  .body { max-width: 900px; margin: 0 auto; padding: 28px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .body { grid-template-columns: 1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+  .card-title { font-family: 'Barlow Condensed', sans-serif; font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 16px; }
+  label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 13px; color: var(--text); font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem; outline: none; transition: border-color 0.2s; margin-bottom: 12px; }
+  input:focus { border-color: var(--amber); }
+  .photographer-list { display: flex; flex-direction: column; gap: 8px; }
+  .photo-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 13px;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .photo-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .photo-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  .photo-dot.offline { background: var(--muted); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .photo-name { font-weight: 600; font-size: 0.88rem; flex: 1; }
+  .photo-badge { font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 5px; }
+  .badge-online { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge-offline { background: rgba(74,103,133,0.15); color: var(--muted); }
+  .empty-state { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 20px 0; }
+  .pw-display { font-family: monospace; font-size: 1.1rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; letter-spacing: 0.15em; color: var(--amber); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .pw-toggle { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; }
+  .login-info { background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.2); border-radius: 10px; padding: 14px; font-size: 0.82rem; color: var(--amber); line-height: 1.6; }
+  .login-info strong { color: var(--text); }
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat-mini { background: var(--surface2); border-radius: 8px; padding: 10px; text-align: center; }
+  .stat-mini-val { font-family: 'Barlow Condensed', sans-serif; font-size: 1.5rem; font-weight: 900; color: var(--amber); }
+  .stat-mini-lbl { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; }
+  .msg { font-size: 0.82rem; margin-top: 6px; min-height: 18px; }
+  .msg.ok { color: var(--green); }
+  .msg.err { color: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📸 Fotografi</h1>
+  <button class="btn btn-outline" onclick="load()">↻ Osveži</button>
+  <button id="theme-btn-pg" onclick="toggleTheme()">☀️</button>
+  <a href="/admin.html" class="btn btn-outline">← Admin</a>
+</div>
+
+<div class="body">
+
+  <!-- Connected photographers -->
+  <div class="card">
+    <div class="card-title">Fotografi</div>
+    <div class="stat-row">
+      <div class="stat-mini"><div class="stat-mini-val" id="cnt-online">0</div><div class="stat-mini-lbl">Povezanih</div></div>
+      <div class="stat-mini"><div class="stat-mini-val" id="cnt-recent">0</div><div class="stat-mini-lbl">Nedavno aktivnih</div></div>
+      <div class="stat-mini"><div class="stat-mini-val" id="cnt-total">0</div><div class="stat-mini-lbl">Skupaj</div></div>
+    </div>
+    <div class="photographer-list" id="photo-list">
+      <div class="empty-state">Nalaganje...</div>
+    </div>
+  </div>
+
+  <!-- Password & login info -->
+  <div class="card" id="pw-card">
+    <div class="card-title">Geslo fotografov</div>
+    <div class="pw-display">
+      <span id="pw-display">••••••••</span>
+      <button class="pw-toggle" onclick="togglePwVisible()" id="pw-toggle-btn">👁</button>
+    </div>
+    <label>Novo geslo</label>
+    <input type="password" id="new-pw" placeholder="Vsaj 4 znake..." autocomplete="new-password">
+    <button class="btn btn-success" onclick="changePassword()" style="width:100%;margin-bottom:10px">✓ Nastavi novo geslo</button>
+    <div class="msg" id="pw-msg"></div>
+
+    <div style="margin-top:20px">
+      <div class="card-title">Navodila za prijavo</div>
+      <div class="login-info">
+        Fotografi se prijavijo na:<br>
+        <strong>yoursite.com/photographer.html</strong><br><br>
+        • <strong>Ime/ID:</strong> poljubno (postane njihov ID)<br>
+        • <strong>Geslo:</strong> nastavljeno zgoraj<br><br>
+        Prijavni žeton velja <strong>30 dni</strong>. Po spremembi gesla se morajo znova prijaviti.
+      </div>
+    </div>
+  </div>
+
+  <!-- Photographer accounts -->
+  <div class="card" style="grid-column: 1/-1">
+    <div class="card-title">Računi fotografov <span style="font-size:0.7rem;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(prijava z osebnim imenom in geslom)</span></div>
+    <div class="stat-row" style="margin-bottom:14px">
+      <div class="stat-mini"><div class="stat-mini-val" id="cnt-accounts">0</div><div class="stat-mini-lbl">Računov</div></div>
+      <div class="stat-mini"><div class="stat-mini-val" id="cnt-acc-online">0</div><div class="stat-mini-lbl">Online</div></div>
+      <div class="stat-mini"></div>
+    </div>
+    <div class="photographer-list" id="account-list" style="margin-bottom:16px">
+      <div class="empty-state">Nalaganje...</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
+      <div>
+        <label>Ime fotografa</label>
+        <input type="text" id="new-acc-name" placeholder="npr. miha" style="margin-bottom:0">
+      </div>
+      <div>
+        <label>Geslo</label>
+        <input type="password" id="new-acc-pw" placeholder="Vsaj 4 znake..." style="margin-bottom:0">
+      </div>
+      <button class="btn btn-success" onclick="createAccount()" style="height:42px">+ Ustvari</button>
+    </div>
+    <div class="msg" id="acc-msg"></div>
+  </div>
+
+</div>
+
+<script src="/src/utils/shared.js?v=3"></script>
+<script>
+const { token, apiFetch } = window.ST;
+
+// ---- Theme ----
+(function() {
+  const t = localStorage.getItem("st_theme") || "dark";
+  document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "");
+  window.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("theme-btn-pg");
+    if (btn) btn.textContent = t === "light" ? "🌙" : "☀️";
+  });
+})();
+function toggleTheme() {
+  const t = localStorage.getItem("st_theme") || "dark";
+  const n = t === "dark" ? "light" : "dark";
+  localStorage.setItem("st_theme", n);
+  document.documentElement.setAttribute("data-theme", n === "light" ? "light" : "");
+  document.getElementById("theme-btn-pg").textContent = n === "light" ? "🌙" : "☀️";
+}
+
+if (!token.payload()?.role === 'admin') location.href = '/admin.html';
+
+let currentPw = "";
+let pwVisible = false;
+
+async function load() {
+  try {
+    const data = await apiFetch("/admin/photographers");
+    currentPw = data.password || "";
+    document.getElementById("pw-display").textContent = pwVisible ? currentPw : "•".repeat(currentPw.length || 8);
+
+    const online = data.photographers.filter(p => p.online);
+    const recent = data.photographers.filter(p => !p.online);
+    document.getElementById("cnt-online").textContent = online.length;
+    document.getElementById("cnt-recent").textContent = recent.length;
+    document.getElementById("cnt-total").textContent = data.photographers.length;
+
+    const list = document.getElementById("photo-list");
+    if (!data.photographers.length) {
+      list.innerHTML = '<div class="empty-state">Ni prijavljenih fotografov.<br>Ko se fotograf prijavi, se pojavi tukaj.</div>';
+      return;
+    }
+    list.innerHTML = data.photographers.map(p => {
+      const statusLabel = p.online ? "● V živo" : "Nedavno aktiven";
+      const badgeClass = p.online ? "badge-online" : "badge-offline";
+      const dotClass = p.online ? "online" : "offline";
+      const lastSeen = !p.online && p.last_seen ? `<span style="font-size:0.65rem;color:var(--muted)">${new Date(p.last_seen).toLocaleTimeString('sl-SI', {hour:'2-digit',minute:'2-digit'})}</span>` : "";
+      return `<div class="photo-item">
+        <div class="photo-dot ${dotClass}"></div>
+        <span class="photo-name">${p.id}</span>
+        ${lastSeen}
+        <span class="photo-badge ${badgeClass}">${statusLabel}</span>
+      </div>`;
+    }).join("");
+  } catch(e) {
+    if (e.message.includes("401") || e.message.includes("403")) location.href = '/admin.html';
+  }
+}
+
+function togglePwVisible() {
+  pwVisible = !pwVisible;
+  document.getElementById("pw-display").textContent = pwVisible ? currentPw : "•".repeat(currentPw.length || 8);
+  document.getElementById("pw-toggle-btn").textContent = pwVisible ? "🙈" : "👁";
+}
+
+async function changePassword() {
+  const pw = document.getElementById("new-pw").value.trim();
+  const msg = document.getElementById("pw-msg");
+  if (pw.length < 4) { msg.textContent = "Geslo mora imeti vsaj 4 znake."; msg.className = "msg err"; return; }
+  try {
+    await apiFetch("/admin/photographers/password", { method: "PATCH", body: JSON.stringify({ password: pw }) });
+    currentPw = pw;
+    document.getElementById("new-pw").value = "";
+    document.getElementById("pw-display").textContent = pwVisible ? currentPw : "•".repeat(currentPw.length);
+    msg.textContent = "✓ Geslo uspešno nastavljeno!"; msg.className = "msg ok";
+    setTimeout(() => { msg.textContent = ""; }, 3000);
+  } catch(e) { msg.textContent = "Napaka: " + e.message; msg.className = "msg err"; }
+}
+
+async function loadAccounts() {
+  try {
+    const data = await apiFetch("/admin/photographers/accounts");
+    document.getElementById("cnt-accounts").textContent = data.accounts.length;
+    document.getElementById("cnt-acc-online").textContent = data.accounts.filter(a => a.online).length;
+    const list = document.getElementById("account-list");
+    if (!data.accounts.length) {
+      list.innerHTML = '<div class="empty-state">Ni računov. Ustvari prvega spodaj.</div>';
+      return;
+    }
+    list.innerHTML = data.accounts.map(a => `
+      <div class="photo-item">
+        <div class="photo-dot ${a.online ? 'online' : 'offline'}"></div>
+        <span class="photo-name">${a.name}</span>
+        <span class="photo-badge ${a.online ? 'badge-online' : 'badge-offline'}">${a.online ? '● V živo' : 'Offline'}</span>
+        <button class="btn btn-danger" style="padding:4px 10px;font-size:0.72rem" onclick="deleteAccount('${a.name}')">✕</button>
+      </div>
+    `).join("");
+  } catch(e) { console.error(e); }
+}
+
+async function createAccount() {
+  const name = document.getElementById("new-acc-name").value.trim();
+  const pw = document.getElementById("new-acc-pw").value.trim();
+  const msg = document.getElementById("acc-msg");
+  if (!name || pw.length < 4) { msg.textContent = "Vnesi ime in geslo (vsaj 4 znake)."; msg.className = "msg err"; return; }
+  try {
+    await apiFetch("/admin/photographers/accounts", { method: "POST", body: JSON.stringify({ name, password: pw }) });
+    document.getElementById("new-acc-name").value = "";
+    document.getElementById("new-acc-pw").value = "";
+    msg.textContent = `✓ Račun "${name}" ustvarjen!`; msg.className = "msg ok";
+    setTimeout(() => { msg.textContent = ""; }, 3000);
+    await loadAccounts();
+  } catch(e) { msg.textContent = "Napaka: " + e.message; msg.className = "msg err"; }
+}
+
+async function deleteAccount(name) {
+  if (!confirm(`Izbriši račun "${name}"?`)) return;
+  try {
+    await apiFetch(`/admin/photographers/accounts/${encodeURIComponent(name)}`, { method: "DELETE" });
+    await loadAccounts();
+  } catch(e) { alert("Napaka: " + e.message); }
+}
+
+load();
+loadAccounts();
+setInterval(() => { load(); loadAccounts(); }, 5000);
+</script>
+</body>
+</html>

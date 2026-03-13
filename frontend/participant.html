@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Štafeta – Udeleženec</title>
+<link rel="manifest" href="/manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #22c55e; --green-dk: #15803d;
+    --bg: #050a07; --surface: #0f1a11; --surface2: #162019;
+    --border: #1e3322; --text: #e2f4e6; --muted: #5a8462;
+    --warn: #f59e0b; --err: #ef4444;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width:100%; min-height:100%; background:var(--bg); color:var(--text); font-family:'Space Grotesk',sans-serif; -webkit-tap-highlight-color:transparent; }
+
+  /* Views */
+  .view { display:none; min-height:100vh; }
+  .view.active { display:flex; flex-direction:column; }
+
+  /* === JOIN VIEW === */
+  #join-view {
+    align-items:center; justify-content:center;
+    padding:24px; text-align:center; background: radial-gradient(ellipse at 50% 0%, rgba(34,197,94,0.08) 0%, transparent 70%), var(--bg);
+  }
+  .logo { font-family:'Barlow Condensed',sans-serif; font-size:3rem; font-weight:900; color:var(--green); letter-spacing:-0.02em; margin-bottom:4px; }
+  .logo-sub { font-size:0.8rem; color:var(--muted); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:40px; }
+  .join-card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:32px 24px; width:100%; max-width:360px; }
+  .join-card h2 { font-size:1.3rem; font-weight:700; margin-bottom:6px; }
+  .join-card p { font-size:0.82rem; color:var(--muted); margin-bottom:24px; line-height:1.5; }
+  label { display:block; font-size:0.78rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px; }
+  input[type=text] {
+    width:100%; background:var(--surface2); border:1px solid var(--border);
+    border-radius:10px; padding:14px 16px; color:var(--text); font-family:'Space Grotesk',sans-serif;
+    font-size:1rem; outline:none; transition:border-color 0.2s; margin-bottom:16px;
+    text-transform:uppercase; letter-spacing:0.1em;
+  }
+  input[type=text]:focus { border-color:var(--green); }
+  .btn {
+    width:100%; padding:16px; border:none; border-radius:12px; font-family:'Space Grotesk',sans-serif;
+    font-weight:700; font-size:1rem; cursor:pointer; transition:all 0.2s;
+    background:var(--green); color:#050a07;
+  }
+  .btn:hover { background:var(--green-dk); color:#fff; }
+  .btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .btn-outline { background:transparent; border:1px solid var(--border); color:var(--muted); font-size:0.85rem; padding:12px; }
+  .btn-outline:hover { border-color:var(--green); color:var(--green); background:transparent; }
+  .error-msg { color:var(--err); font-size:0.82rem; margin-top:8px; text-align:center; min-height:20px; }
+
+  /* === TRACKER VIEW === */
+  #tracker-view { padding:0; }
+
+  .tracker-header {
+    padding:16px 20px; background:var(--surface);
+    border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+  }
+  .group-pill {
+    display:flex; align-items:center; gap:8px;
+  }
+  .group-color-dot { width:14px; height:14px; border-radius:50%; }
+  .group-label { font-family:'Barlow Condensed',sans-serif; font-size:1.1rem; font-weight:700; letter-spacing:0.03em; }
+  .tracker-status { display:flex; align-items:center; gap:6px; }
+  .status-indicator { width:8px; height:8px; border-radius:50%; background:var(--muted); transition:background 0.3s; }
+  .status-indicator.gps { background:var(--green); box-shadow:0 0 8px var(--green); }
+  .status-indicator.offline { background:var(--warn); }
+  .status-label { font-size:0.72rem; color:var(--muted); }
+
+  /* Big GPS card */
+  .tracker-main { flex:1; padding:20px; display:flex; flex-direction:column; gap:16px; overflow-y:auto; }
+  
+  .gps-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding:20px; text-align:center;
+  }
+  .gps-coords { font-family:'Barlow Condensed',sans-serif; font-size:1.05rem; color:var(--muted); letter-spacing:0.05em; }
+  .gps-accuracy { font-size:0.75rem; color:var(--muted); margin-top:4px; }
+  .gps-big-icon { font-size:2.5rem; margin-bottom:8px; }
+  .gps-source-badge {
+    display:inline-block; font-size:0.65rem; font-weight:700; padding:3px 8px;
+    border-radius:6px; margin-top:6px; text-transform:uppercase; letter-spacing:0.1em;
+  }
+  .src-gps { background:rgba(34,197,94,0.15); color:var(--green); }
+  .src-ble { background:rgba(96,165,250,0.15); color:#60a5fa; }
+  .src-manual { background:rgba(245,158,11,0.15); color:var(--warn); }
+
+  /* Waiting-for-start banner */
+  .waiting-banner {
+    background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.35);
+    border-radius:12px; padding:14px 16px;
+    display:none; align-items:center; gap:12px;
+  }
+  .waiting-banner.show { display:flex; }
+  .waiting-icon { font-size:1.4rem; flex-shrink:0; }
+  .waiting-text { font-size:0.82rem; color:#818cf8; line-height:1.4; }
+  .waiting-title { font-weight:700; margin-bottom:2px; }
+
+  /* Offline queue */
+  .offline-banner {
+    background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3);
+    border-radius:12px; padding:12px 16px;
+    display:none; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .offline-banner.show { display:flex; }
+  .offline-text { font-size:0.8rem; color:var(--warn); }
+  .sync-btn { background:var(--warn); color:#050a07; border:none; border-radius:8px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; }
+
+  /* Manual location */
+  .manual-section { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; }
+  .manual-section h3 { font-size:0.85rem; font-weight:700; margin-bottom:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; }
+  .manual-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .manual-grid input { margin-bottom:0; font-size:0.85rem; padding:10px 12px; letter-spacing:0; }
+  .manual-grid input::placeholder { text-transform:none; letter-spacing:0; color:var(--muted); font-size:0.8rem; }
+  .manual-grid .btn { font-size:0.85rem; padding:10px; grid-column:span 2; }
+
+  /* BLE section */
+  .ble-section { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; }
+  .ble-section h3 { font-size:0.85rem; font-weight:700; margin-bottom:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; }
+  .ble-result { font-size:0.8rem; padding:8px 12px; background:var(--surface2); border-radius:8px; color:var(--muted); min-height:36px; display:flex; align-items:center; }
+  .ble-code-box {
+    background:var(--surface2); border:2px solid var(--green); border-radius:12px;
+    padding:16px; text-align:center; margin-bottom:12px;
+  }
+  .ble-code-lbl { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); margin-bottom:6px; }
+  .ble-code-val {
+    font-family:'Barlow Condensed',sans-serif; font-size:2.2rem; font-weight:900;
+    color:var(--green); letter-spacing:0.08em; cursor:pointer;
+  }
+  .ble-code-hint { font-size:0.72rem; color:var(--muted); margin-top:8px; line-height:1.5; }
+  .ble-copy-btn {
+    margin-top:10px; padding:8px 16px; border:1px solid var(--green); border-radius:8px;
+    background:rgba(34,197,94,0.1); color:var(--green); font-family:'Space Grotesk',sans-serif;
+    font-weight:600; font-size:0.8rem; cursor:pointer; width:100%;
+  }
+  .ble-copy-btn:hover { background:rgba(34,197,94,0.2); }
+
+  /* Log */
+  .log-section { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; }
+  .log-title { font-size:0.8rem; font-weight:700; margin-bottom:8px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; }
+  .log-list { font-size:0.72rem; color:var(--muted); max-height:120px; overflow-y:auto; display:flex; flex-direction:column-reverse; gap:3px; }
+  .log-entry { padding:3px 0; border-bottom:1px solid var(--border); }
+  .log-entry span { color:var(--green); }
+
+  /* Bottom nav */
+  .bottom-bar {
+    padding:16px 20px; background:var(--surface); border-top:1px solid var(--border); flex-shrink:0;
+    display:flex; gap:10px;
+  }
+
+  [data-theme="light"] {
+    --bg:#f0f7f2; --surface:#fff; --surface2:#f4fbf5; --border:#d0e8d5; --text:#0f2a14; --muted:#5a8462;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f0f7f2; --surface:#fff; --surface2:#f4fbf5; --border:#d0e8d5; --text:#0f2a14; --muted:#5a8462; }
+  }
+  html, body { transition: background 0.3s, color 0.3s; }
+</style>
+</head>
+<body>
+
+<!-- JOIN VIEW -->
+<div id="join-view" class="view active">
+  <div class="logo">🌿 ŠCPET</div>
+  <div class="logo-sub">Podnebni Štafetni Tek</div>
+  <div class="join-card">
+    <h2>Pridruži se skupini</h2>
+    <p>Vnesi kodo svoje skupine, ki jo dobiš od organizatorja.</p>
+    <label for="join-code">Koda skupine</label>
+    <input type="text" id="join-code" placeholder="npr. GRP001" maxlength="8" autocomplete="off" autocapitalize="characters">
+    <button class="btn" id="join-btn" onclick="joinGroup()">Vstopi</button>
+    <div class="error-msg" id="join-error"></div>
+  </div>
+</div>
+
+<!-- TRACKER VIEW -->
+<div id="tracker-view" class="view">
+  <div class="tracker-header">
+    <div class="group-pill">
+      <div class="group-color-dot" id="hdr-dot"></div>
+      <span class="group-label" id="hdr-name">Skupina –</span>
+    </div>
+    <div class="tracker-status">
+      <div class="status-indicator" id="gps-indicator"></div>
+      <span class="status-label" id="gps-label">GPS OFF</span>
+    </div>
+  </div>
+
+  <div class="tracker-main">
+    <!-- Waiting-for-start banner -->
+    <div class="waiting-banner" id="waiting-banner">
+      <div class="waiting-icon">⏳</div>
+      <div class="waiting-text">
+        <div class="waiting-title">Čakanje na start</div>
+        Organizator še ni zagnal vaše skupine. Sledenje se bo aktiviralo samodejno.
+      </div>
+    </div>
+
+    <!-- Offline banner -->
+    <div class="offline-banner" id="offline-banner">
+      <div class="offline-text">📴 Offline – <span id="offline-count">0</span> lokacij v vrsti</div>
+      <button class="sync-btn" onclick="syncOffline()">Sinhroniziraj</button>
+    </div>
+
+    <!-- GPS card -->
+    <div class="gps-card">
+      <div class="gps-big-icon" id="gps-icon">📡</div>
+      <div class="gps-coords" id="gps-coords">Pridobivanje GPS signala...</div>
+      <div class="gps-accuracy" id="gps-accuracy"></div>
+      <div class="gps-source-badge src-gps" id="source-badge">GPS</div>
+    </div>
+
+    <!-- Manual location fallback -->
+    <div class="manual-section">
+      <h3>🗺 Ročni vnos lokacije</h3>
+      <div class="manual-grid">
+        <input type="text" id="man-lat" placeholder="Lat (46.0569)">
+        <input type="text" id="man-lng" placeholder="Lng (14.5058)">
+        <button class="btn" onclick="submitManual()">Pošlji ročno lokacijo</button>
+      </div>
+    </div>
+
+    <!-- BLE code for photographer detection -->
+    <div class="ble-section" id="ble-section">
+      <h3>📶 Bluetooth sledenje</h3>
+      <div class="ble-code-box">
+        <div class="ble-code-lbl">Bluetooth koda vaše skupine</div>
+        <div class="ble-code-val" id="ble-code-display" onclick="copyBLECode()">ST-??</div>
+        <div class="ble-code-hint">
+          Nastavi ime Bluetooth naprave na zgornjo kodo,<br>
+          da te fotografi samodejno zaznajo.
+        </div>
+        <button class="ble-copy-btn" onclick="copyBLECode()">📋 Kopiraj kodo</button>
+      </div>
+      <div style="font-size:0.75rem;color:var(--muted);line-height:1.6">
+        <strong style="color:var(--text)">Navodila za Android:</strong><br>
+        Nastavitve → Bluetooth → ime naprave → vnesi kodo zgoraj<br><br>
+        <strong style="color:var(--text)">Navodila za iPhone:</strong><br>
+        Nastavitve → Splošno → Vizitka → vnesi kodo zgoraj
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="log-section">
+      <div class="log-title">📋 Dnevnik lokacij</div>
+      <div class="log-list" id="log-list"></div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn" id="tracking-btn" onclick="toggleTracking()">▶ Začni sledenje</button>
+    <button class="btn btn-outline" onclick="logout()" style="width:auto;padding:16px 20px">Izhod</button>
+  </div>
+</div>
+
+<script src="/src/utils/shared.js?v=3"></script>
+<script>
+const { token, apiFetch, offlineQueue, GPSTracker, BLEScanner, WS_BASE, notify, requestNotifications } = window.ST;
+
+// Apply saved theme preference
+(function() {
+  const t = localStorage.getItem("st_theme");
+  if (t) document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "");
+})();
+
+let groupId = null, groupColor = "#22c55e", groupName = "";
+let gpsTracker = null, wsConn = null;
+let trackingActive = false, groupStarted = false;
+const logs = [];
+const SEND_INTERVAL_MS = 5000;
+let lastSent = 0, pendingLocation = null;
+
+// ---- Init ----
+window.addEventListener("load", () => {
+  const payload = token.payload();
+  if (payload?.role === "participant") {
+    setupTracker(payload);
+    showView("tracker-view");
+  }
+  window.addEventListener("online", () => { updateOfflineBanner(); offlineQueue.flush(); });
+  window.addEventListener("offline", updateOfflineBanner);
+  setInterval(updateOfflineBanner, 2000);
+  requestNotifications();
+});
+
+function showView(id) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+// ---- Join ----
+async function joinGroup() {
+  const code = document.getElementById("join-code").value.trim().toUpperCase();
+  const errEl = document.getElementById("join-error");
+  errEl.textContent = "";
+  if (!code) { errEl.textContent = "Vnesi kodo!"; return; }
+
+  const deviceId = localStorage.getItem("st_device_id") || (() => {
+    const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem("st_device_id", id);
+    return id;
+  })();
+
+  try {
+    document.getElementById("join-btn").disabled = true;
+    const res = await apiFetch("/auth/join-group", {
+      method: "POST",
+      body: JSON.stringify({ join_code: code, device_id: deviceId }),
+    });
+    token.set(res.access_token);
+    setupTracker(res);
+    showView("tracker-view");
+  } catch(e) {
+    errEl.textContent = e.message;
+    document.getElementById("join-btn").disabled = false;
+  }
+}
+
+function setupTracker(data) {
+  groupId = data.group_id;
+  groupColor = data.group_color || "#22c55e";
+  groupName = `Skupina ${data.group_number} – ${data.group_name || ""}`;
+  document.getElementById("hdr-dot").style.background = groupColor;
+  document.getElementById("hdr-name").textContent = groupName;
+  showBLECode(data.group_number);
+
+  // Connect WebSocket for group status updates
+  if (token.get()) {
+    wsConn = new window.ST.ReconnectingWS(
+      `${WS_BASE}/ws/group/${groupId}?token=${token.get()}`,
+      (msg) => {
+        if (msg.type === "group_status") {
+          if (msg.status === "started") {
+            groupStarted = true;
+            setWaitingState(false);
+            notify("Skupina je začela!", "Sledenje je aktivno.");
+          }
+          if (msg.status === "finished") notify("Skupina je zaključila!", "Prišli ste do cilja 🎉");
+          addLog(`Status: ${msg.status}`, "status");
+        }
+      }
+    );
+  }
+  // Check if group already started via public state API
+  checkGroupStarted();
+  updateOfflineBanner();
+}
+
+// ---- Group start check ----
+async function checkGroupStarted() {
+  try {
+    const state = await fetch("/api/public/state").then(r => r.json());
+    const g = state.groups?.find(g => g.id === groupId);
+    if (g?.has_started) {
+      groupStarted = true;
+      setWaitingState(false);
+    } else {
+      setWaitingState(true);
+    }
+  } catch {}
+}
+
+function setWaitingState(waiting) {
+  document.getElementById("waiting-banner").classList.toggle("show", waiting);
+  const btn = document.getElementById("tracking-btn");
+  btn.disabled = waiting;
+  if (waiting) {
+    btn.textContent = "⏳ Čakanje na start...";
+    btn.style.opacity = "0.5";
+  } else {
+    btn.textContent = trackingActive ? "⏹ Ustavi sledenje" : "▶ Začni sledenje";
+    btn.style.opacity = "";
+    btn.style.background = trackingActive ? "#ef4444" : "";
+  }
+}
+
+// ---- GPS Tracking ----
+function toggleTracking() {
+  if (!groupStarted) return;
+  if (!trackingActive) startTracking(); else stopTracking();
+}
+
+function startTracking() {
+  trackingActive = true;
+  document.getElementById("tracking-btn").textContent = "⏹ Ustavi sledenje";
+  document.getElementById("tracking-btn").style.background = "#ef4444";
+
+  gpsTracker = new GPSTracker(
+    async (loc) => {
+      pendingLocation = loc;
+      document.getElementById("gps-icon").textContent = "📍";
+      document.getElementById("gps-coords").textContent = `${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)}`;
+      document.getElementById("gps-accuracy").textContent = loc.accuracy ? `Natančnost: ±${Math.round(loc.accuracy)}m` : "";
+      document.getElementById("gps-indicator").className = "status-indicator gps";
+      document.getElementById("gps-label").textContent = "GPS aktiven";
+      setBadge("gps", "GPS");
+
+      const now = Date.now();
+      if (now - lastSent >= SEND_INTERVAL_MS) {
+        lastSent = now;
+        await sendLocation(loc);
+      }
+    },
+    (err) => {
+      document.getElementById("gps-indicator").className = "status-indicator offline";
+      document.getElementById("gps-label").textContent = "GPS napaka";
+      document.getElementById("gps-coords").textContent = err;
+      addLog("GPS napaka: " + err);
+    }
+  );
+  gpsTracker.start();
+}
+
+function stopTracking() {
+  trackingActive = false;
+  gpsTracker?.stop();
+  const btn = document.getElementById("tracking-btn");
+  btn.textContent = "▶ Začni sledenje";
+  btn.style.background = "";
+  document.getElementById("gps-indicator").className = "status-indicator";
+  document.getElementById("gps-label").textContent = "GPS OFF";
+}
+
+async function sendLocation(loc) {
+  if (!navigator.onLine) {
+    offlineQueue.push(loc);
+    updateOfflineBanner();
+    addLog("Offline – shranjeno v vrsto", "warn");
+    return;
+  }
+  try {
+    await apiFetch("/location/update", { method: "POST", body: JSON.stringify(loc) });
+    addLog(`Poslano: ${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)} [${loc.source}]`, "ok");
+  } catch(e) {
+    offlineQueue.push(loc);
+    updateOfflineBanner();
+    addLog("Napaka pošiljanja – v vrsto", "warn");
+  }
+}
+
+// ---- Manual ----
+async function submitManual() {
+  const lat = parseFloat(document.getElementById("man-lat").value);
+  const lng = parseFloat(document.getElementById("man-lng").value);
+  if (isNaN(lat) || isNaN(lng)) { alert("Vnesi veljavne koordinate!"); return; }
+  setBadge("manual", "ROČNO");
+  await sendLocation({ lat, lng, source: "manual", timestamp: new Date().toISOString() });
+}
+
+// ---- BLE code display ----
+function showBLECode(groupNumber) {
+  const code = `ST-${String(groupNumber).padStart(2, "0")}`;
+  document.getElementById("ble-code-display").textContent = code;
+}
+
+async function copyBLECode() {
+  const code = document.getElementById("ble-code-display").textContent;
+  if (code === "ST-??") return;
+  try {
+    await navigator.clipboard.writeText(code);
+    const btn = document.querySelector(".ble-copy-btn");
+    const prev = btn.textContent;
+    btn.textContent = "✓ Kopirano!";
+    setTimeout(() => { btn.textContent = prev; }, 2000);
+  } catch {
+    alert(document.getElementById("ble-code-display").textContent);
+  }
+}
+
+// ---- Offline sync ----
+async function syncOffline() {
+  const count = await offlineQueue.flush();
+  if (count > 0) addLog(`Sinhroniziranih ${count} lokacij`, "ok");
+  updateOfflineBanner();
+}
+
+function updateOfflineBanner() {
+  const count = offlineQueue.size();
+  const banner = document.getElementById("offline-banner");
+  document.getElementById("offline-count").textContent = count;
+  banner.classList.toggle("show", count > 0 || !navigator.onLine);
+  if (!navigator.onLine) {
+    document.getElementById("gps-indicator").className = "status-indicator offline";
+    document.getElementById("gps-label").textContent = "Offline";
+  }
+}
+
+// ---- Helpers ----
+function setBadge(src, label) {
+  const b = document.getElementById("source-badge");
+  b.textContent = label;
+  b.className = "gps-source-badge src-" + src;
+}
+
+function addLog(msg, type = "") {
+  const d = new Date();
+  const time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+  logs.unshift({ msg, time, type });
+  if (logs.length > 50) logs.pop();
+  const list = document.getElementById("log-list");
+  list.innerHTML = logs.map(l => `<div class="log-entry"><span>[${l.time}]</span> ${l.msg}</div>`).join("");
+}
+
+function logout() {
+  stopTracking();
+  wsConn?.close();
+  token.remove();
+  showView("join-view");
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "Podnebni Štafetni Tek ŠCPET",
+  "short_name": "Štafeta",
+  "description": "Sledenje podnebnega štafetnega teka ŠCPET",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050a07",
+  "theme_color": "#22c55e",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "shortcuts": [
+    { "name": "Udeleženec", "url": "/participant.html", "description": "Sledenje za udeležence" },
+    { "name": "Fotograf", "url": "/photographer.html", "description": "Pogled za fotografe" },
+    { "name": "Admin", "url": "/admin.html", "description": "Admin panel" }
+  ]
+}

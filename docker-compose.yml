@@ -1,0 +1,79 @@
+version: "3.9"
+# ============================================================
+# Štafetni Tek – NPM (Nginx Proxy Manager) verzija
+# Nginx container je odstranjen — NPM prevzame proxy vlogo
+# ============================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: stefetni_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-stefetnitek}
+      POSTGRES_USER: ${POSTGRES_USER:-stefan}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stefan} -d ${POSTGRES_DB:-stefetnitek}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    container_name: stefetni_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: stefetni_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-stefan}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-stefetnitek}
+      REDIS_URL: redis://redis:6379
+      SECRET_KEY: ${SECRET_KEY:-supersecretkey_change_in_production}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    volumes:
+      - ./frontend:/app/frontend
+      - ./backend/app:/app/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+       - internal
+       - nginx-proxy-manager_default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  internal:
+    driver: bridge
+  nginx-proxy-manager_default:
+    external: true

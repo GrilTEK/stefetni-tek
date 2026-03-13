@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+dist/
+build/
+*.egg
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Docker volumes (local data)
+postgres_data/
+redis_data/
+
+# Archives & temp
+*.zip
+*.tar.gz
+*.log
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+claudechat.md
+stefetni-tek-final/
+{backend/
+nginx/

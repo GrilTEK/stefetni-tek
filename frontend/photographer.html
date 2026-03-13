@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Štafeta – Fotograf</title>
+<link rel="manifest" href="/manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/lib/leaflet.css"/>
+<style>
+  :root {
+    --amber: #f59e0b; --amber-dk: #b45309;
+    --bg: #0c0a05; --surface: #1a1508; --surface2: #231d0a;
+    --border: #3a2e10; --text: #fef3c7; --muted: #92753a;
+    --green: #22c55e; --red: #ef4444;
+  }
+  [data-theme="light"] {
+    --bg: #fffbeb; --surface: #ffffff; --surface2: #fef9e7;
+    --border: #f0d58a; --text: #1a1000; --muted: #92753a;
+  }
+  html, body { transition: background 0.3s, color 0.3s; }
+  #theme-btn-photo { background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); border-radius:8px; padding:6px 10px; color:var(--amber); cursor:pointer; font-size:0.85rem; line-height:1; }
+  #theme-btn-photo:hover { background:rgba(245,158,11,0.25); }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:'Space Grotesk',sans-serif; }
+
+  /* Login */
+  #login-view {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    height:100vh; padding:24px; background:radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.07) 0%, transparent 70%), var(--bg);
+  }
+  .logo { font-family:'Barlow Condensed',sans-serif; font-size:2.5rem; font-weight:900; color:var(--amber); margin-bottom:6px; }
+  .logo-sub { font-size:0.75rem; color:var(--muted); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:40px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:28px 24px; width:100%; max-width:340px; }
+  .card h2 { font-size:1.2rem; margin-bottom:20px; }
+  label { display:block; font-size:0.75rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px; }
+  input {
+    width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px;
+    padding:13px 15px; color:var(--text); font-family:'Space Grotesk',sans-serif; font-size:0.95rem;
+    outline:none; transition:border-color 0.2s; margin-bottom:14px;
+  }
+  input:focus { border-color:var(--amber); }
+  .btn { width:100%; padding:14px; border:none; border-radius:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.95rem; cursor:pointer; transition:all 0.2s; background:var(--amber); color:var(--bg); }
+  .btn:hover { background:var(--amber-dk); }
+  .err { color:var(--red); font-size:0.8rem; margin-top:6px; text-align:center; }
+
+  /* Main view */
+  #main-view { display:none; width:100%; height:100%; position:relative; }
+  #map { position:absolute; inset:0; z-index:1; }
+
+  /* Top bar */
+  #topbar {
+    position:absolute; top:0; left:0; right:0; z-index:10;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 16px;
+    background:linear-gradient(180deg, rgba(12,10,5,0.96) 0%, rgba(12,10,5,0) 100%);
+  }
+  .topbar-left { display:flex; align-items:center; gap:10px; }
+  .topbar-logo { font-family:'Barlow Condensed',sans-serif; font-size:1.2rem; font-weight:900; color:var(--amber); }
+  .topbar-badge { font-size:0.7rem; background:rgba(245,158,11,0.15); color:var(--amber); border:1px solid rgba(245,158,11,0.3); border-radius:6px; padding:3px 8px; font-weight:700; }
+  #my-gps-status { display:flex; align-items:center; gap:5px; font-size:0.7rem; color:var(--muted); }
+  .dot { width:7px; height:7px; border-radius:50%; background:var(--muted); }
+  .dot.on { background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+  /* Alert overlay */
+  #alert-overlay {
+    position:absolute; top:70px; left:12px; right:12px; z-index:20;
+    display:flex; flex-direction:column; gap:8px; pointer-events:none;
+  }
+  .alert-card {
+    background:rgba(245,158,11,0.92); backdrop-filter:blur(8px);
+    border-radius:14px; padding:14px 18px; pointer-events:all;
+    display:flex; align-items:center; gap:12px; cursor:pointer;
+    animation:slideIn 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  @keyframes slideIn { from{transform:translateY(-20px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .alert-icon { font-size:1.5rem; flex-shrink:0; }
+  .alert-title { font-weight:700; font-size:0.95rem; color:#0c0a05; }
+  .alert-sub { font-size:0.75rem; color:rgba(0,0,0,0.7); }
+  .alert-dismiss { margin-left:auto; font-size:1rem; color:#0c0a05; opacity:0.6; flex-shrink:0; }
+
+  /* Side panel */
+  #side-panel {
+    position:absolute; right:0; top:0; bottom:60px; z-index:10;
+    width:260px; background:rgba(12,10,5,0.93); backdrop-filter:blur(12px);
+    border-left:1px solid var(--border); display:flex; flex-direction:column;
+    transform:translateX(260px); transition:transform 0.3s;
+  }
+  #side-panel.open { transform:translateX(0); }
+  #panel-toggle {
+    position:absolute; right:0; top:50%; transform:translateY(-50%);
+    background:var(--surface); border:1px solid var(--border);
+    border-right:none; border-radius:8px 0 0 8px; padding:10px 7px;
+    cursor:pointer; color:var(--amber); z-index:11; font-size:0.9rem;
+  }
+  .panel-header { padding:16px 14px 10px; border-bottom:1px solid var(--border); font-family:'Barlow Condensed',sans-serif; font-size:0.9rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); }
+  .groups-scroll { flex:1; overflow-y:auto; padding:8px; }
+  .pg-card {
+    padding:9px 11px; border-radius:8px; background:var(--surface);
+    border:1px solid var(--border); margin-bottom:5px; cursor:pointer;
+    transition:all 0.15s; display:flex; align-items:center; gap:8px;
+  }
+  .pg-card:hover { border-color:var(--amber); background:var(--surface2); }
+  .pg-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .pg-name { font-size:0.8rem; font-weight:600; flex:1; }
+  .pg-dist { font-size:0.7rem; color:var(--muted); }
+  .pin-btn { font-size:0.65rem; background:rgba(245,158,11,0.15); color:var(--amber); border:1px solid rgba(245,158,11,0.3); border-radius:5px; padding:3px 7px; cursor:pointer; white-space:nowrap; }
+  .pin-btn:hover { background:rgba(245,158,11,0.3); }
+
+  /* Bottom bar */
+  #bottombar {
+    position:absolute; bottom:0; left:0; right:0; z-index:10;
+    padding:10px 16px; background:rgba(12,10,5,0.95); border-top:1px solid var(--border);
+    display:flex; align-items:center; gap:10px;
+  }
+  #my-coords { font-size:0.7rem; color:var(--muted); flex:1; font-family:monospace; }
+  .logout-btn { background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:8px 12px; font-size:0.75rem; cursor:pointer; }
+  .logout-btn:hover { color:var(--text); border-color:var(--muted); }
+
+  /* My location marker */
+  .my-marker { width:20px; height:20px; border-radius:50%; background:var(--amber); border:3px solid white; box-shadow:0 0 12px rgba(245,158,11,0.6); }
+
+  .leaflet-popup-content-wrapper { background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:10px; font-family:'Space Grotesk',sans-serif; }
+  .leaflet-popup-tip { background:var(--surface); }
+
+  /* Follow-mode banner */
+  #follow-bar {
+    position:absolute; bottom:50px; left:0; right:0; z-index:16;
+    padding:10px 16px; background:rgba(245,158,11,0.97); backdrop-filter:blur(8px);
+    display:flex; align-items:center; gap:10px;
+    transform:translateY(100%); transition:transform 0.3s ease;
+  }
+  #follow-bar.active { transform:translateY(0); }
+  .follow-icon { font-size:1.1rem; flex-shrink:0; }
+  .follow-label { flex:1; font-weight:700; font-size:0.88rem; color:#0c0a05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .follow-stop-btn { background:rgba(0,0,0,0.25); border:none; border-radius:7px; padding:6px 12px; color:#0c0a05; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.78rem; cursor:pointer; white-space:nowrap; }
+
+  /* BLE devices panel */
+  #ble-panel {
+    position:absolute; bottom:50px; left:0; right:0; z-index:15;
+    max-height:220px; overflow-y:auto;
+    background:rgba(12,10,5,0.97); border-top:1px solid var(--border);
+    display:none; flex-direction:column; gap:4px; padding:8px;
+  }
+  #ble-panel.show { display:flex; }
+  #ble-panel-title { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); padding:4px 6px 2px; }
+  .ble-device {
+    display:flex; align-items:center; gap:8px; padding:7px 10px;
+    border-radius:8px; background:var(--surface); border:1px solid var(--border);
+    cursor:pointer; transition:all 0.15s;
+  }
+  .ble-device.matched { border-color:var(--amber); background:rgba(245,158,11,0.08); }
+  .ble-device:hover { border-color:var(--amber); }
+  .ble-dev-name { font-size:0.82rem; font-weight:600; flex:1; }
+  .ble-dev-rssi { font-size:0.65rem; color:var(--muted); font-family:monospace; }
+  .ble-match-badge { font-size:0.62rem; font-weight:700; background:rgba(245,158,11,0.2); color:var(--amber); padding:2px 7px; border-radius:5px; white-space:nowrap; }
+  .ble-scan-btn { font-size:0.65rem; background:rgba(96,165,250,0.15); color:#60a5fa; border:1px solid rgba(96,165,250,0.3); border-radius:5px; padding:3px 7px; cursor:pointer; white-space:nowrap; }
+  .ble-scan-btn.active { background:rgba(34,197,94,0.15); color:var(--green); border-color:rgba(34,197,94,0.3); }
+
+  /* Following highlight in group list */
+  .pg-card.following { border-color:var(--amber); background:rgba(245,158,11,0.06); }
+  .pg-card.following .pg-name { color:var(--amber); }
+  .ble-code { font-size:0.58rem; color:var(--muted); font-family:monospace; }
+  .follow-btn { font-size:0.65rem; background:rgba(245,158,11,0.15); color:var(--amber); border:1px solid rgba(245,158,11,0.3); border-radius:5px; padding:3px 7px; cursor:pointer; white-space:nowrap; }
+  .follow-btn:hover { background:rgba(245,158,11,0.3); }
+  .follow-btn.active { background:rgba(239,68,68,0.15); color:var(--red); border-color:rgba(239,68,68,0.3); }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-view">
+  <div class="logo">📸 Fotograf</div>
+  <div class="logo-sub">Štafetni Tek ŠCPET</div>
+  <div class="card">
+    <h2>Prijava za fotografa</h2>
+    <label>Tvoje ime / ID</label>
+    <input type="text" id="photo-name" placeholder="npr. Miha">
+    <label>Geslo fotografa</label>
+    <input type="password" id="photo-pw" placeholder="••••••">
+    <button class="btn" onclick="login()">Prijava</button>
+    <div class="err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="main-view">
+  <div id="map"></div>
+
+  <div id="topbar">
+    <div class="topbar-left">
+      <span class="topbar-logo">📸 FOTOGRAF</span>
+      <span class="topbar-badge" id="photo-name-badge"></span>
+    </div>
+    <button id="theme-btn-photo" onclick="toggleThemePhoto()">☀️</button>
+    <div id="my-gps-status" onclick="enableGPS()" style="cursor:pointer" title="Tapni za aktivacijo GPS">
+      <div class="dot" id="gps-dot"></div>
+      <span id="gps-lbl">Tapni za GPS</span>
+    </div>
+  </div>
+
+  <div id="alert-overlay"></div>
+
+  <!-- Follow mode banner -->
+  <div id="follow-bar">
+    <div class="follow-icon">📍</div>
+    <div class="follow-label" id="follow-label">Sledim skupini…</div>
+    <button class="follow-stop-btn" onclick="stopFollowing()">⏹ Ustavi</button>
+  </div>
+
+  <!-- BLE devices panel -->
+  <div id="ble-panel">
+    <div id="ble-panel-title">📶 Zaznane BLE naprave</div>
+  </div>
+
+  <div id="side-panel">
+    <div class="panel-header">Skupine</div>
+    <div class="groups-scroll" id="groups-scroll"></div>
+  </div>
+  <button id="panel-toggle" onclick="togglePanel()">☰</button>
+
+  <div id="bottombar">
+    <div id="my-coords">Lokacija ni znana</div>
+    <button class="ble-scan-btn" id="ble-toggle-btn" onclick="toggleBLEScan()" title="Iskanje Bluetooth naprav">📶 BLE</button>
+    <button class="logout-btn" onclick="logout()">Izhod</button>
+  </div>
+</div>
+
+<script src="/lib/leaflet.js"></script>
+<script src="/src/utils/shared.js?v=3"></script>
+<script>
+const { token, apiFetch, GPSTracker, ReconnectingWS, haversine, notify, requestNotifications, WS_BASE } = window.ST;
+
+let map, myMarker, photographerId, wsConn, photoTileLayer;
+let myLat = null, myLng = null;
+let groups = {}, groupMarkers = {}, groupTrails = {}, panelOpen = false;
+let routeLayer = null;
+const alerts = [];
+const SEND_INTERVAL = 4000;
+let lastSent = 0;
+
+// Follow mode & BLE
+let followingGroupId = null;
+let bleDevices = {}; // id → {name, rssi, lastSeen, matchedGroup}
+let bleScanActive = false;
+let bleScanHandle = null;
+
+// ---- Theme ----
+(function() {
+  const t = localStorage.getItem("st_theme") || "dark";
+  document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "");
+  window.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("theme-btn-photo");
+    if (btn) btn.textContent = t === "light" ? "🌙" : "☀️";
+  });
+})();
+function toggleThemePhoto() {
+  const t = localStorage.getItem("st_theme") || "dark";
+  const n = t === "dark" ? "light" : "dark";
+  localStorage.setItem("st_theme", n);
+  document.documentElement.setAttribute("data-theme", n === "light" ? "light" : "");
+  document.getElementById("theme-btn-photo").textContent = n === "light" ? "🌙" : "☀️";
+  if (photoTileLayer && map) {
+    map.removeLayer(photoTileLayer);
+    photoTileLayer = L.tileLayer(
+      n === "light" ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                    : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      { maxZoom: 19 }
+    ).addTo(map);
+  }
+}
+
+// ---- Login ----
+window.addEventListener("load", () => {
+  const payload = token.payload();
+  if (payload?.role === "photographer") {
+    photographerId = payload.photographer_id || "unknown";
+    showMain();
+  }
+  requestNotifications();
+});
+
+async function login() {
+  const name = document.getElementById("photo-name").value.trim();
+  const pw = document.getElementById("photo-pw").value;
+  const err = document.getElementById("login-err");
+  err.textContent = "";
+  if (!name || !pw) { err.textContent = "Vnesi ime in geslo!"; return; }
+  try {
+    const res = await apiFetch("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ role: "photographer", password: pw, identifier: name }),
+    });
+    token.set(res.access_token);
+    photographerId = name;
+    showMain();
+  } catch(e) { err.textContent = e.message; }
+}
+
+function showMain() {
+  document.getElementById("login-view").style.display = "none";
+  document.getElementById("main-view").style.display = "block";
+  document.getElementById("photo-name-badge").textContent = photographerId;
+  initMap();
+  initWS();
+  // GPS is activated by user tap (required for iOS Safari permission prompt)
+}
+
+// ---- Map ----
+async function initMap() {
+  const config = await fetch("/api/public/event").then(r => r.json()).catch(() => ({}));
+  map = L.map("map", { zoomControl: true, attributionControl: false })
+    .setView([config.map_center_lat || 46.0569, config.map_center_lng || 14.5058], config.map_zoom || 13);
+
+  const savedTheme = localStorage.getItem("st_theme") || "dark";
+  photoTileLayer = L.tileLayer(
+    savedTheme === "light" ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                           : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    { maxZoom: 19 }
+  ).addTo(map);
+
+  if (config.route_waypoints?.length > 1) {
+    const pts = config.route_waypoints.map(w => [w.lat, w.lng]);
+    routeLayer = L.polyline(pts, { color: "#f59e0b", weight: 3, opacity: 0.5, dashArray: "8 6" }).addTo(map);
+  }
+}
+
+function createGroupMarker(g) {
+  const div = document.createElement("div");
+  div.style.cssText = `width:30px;height:30px;border-radius:50%;background:${g.color};border:3px solid white;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:0.8rem;color:white;box-shadow:0 2px 8px rgba(0,0,0,0.5);cursor:pointer;`;
+  div.textContent = g.number;
+  return L.divIcon({ html: div.outerHTML, className: "", iconSize: [30, 30], iconAnchor: [15, 15] });
+}
+
+// ---- GPS ----
+let gpsTracker = null;
+function enableGPS() {
+  if (gpsTracker?.active) return;
+  document.getElementById("gps-lbl").textContent = "Pridobivanje...";
+  gpsTracker = new GPSTracker(
+    async (loc) => {
+      myLat = loc.lat; myLng = loc.lng;
+      document.getElementById("gps-dot").className = "dot on";
+      document.getElementById("gps-lbl").textContent = "GPS aktiven";
+      document.getElementById("my-coords").textContent = `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}`;
+
+      // Update my marker
+      const pos = [loc.lat, loc.lng];
+      const icon = L.divIcon({ html: '<div class="my-marker"></div>', className: "", iconSize: [20, 20], iconAnchor: [10, 10] });
+      if (myMarker) myMarker.setLatLng(pos);
+      else { myMarker = L.marker(pos, { icon, zIndexOffset: 1000 }).addTo(map).bindTooltip("📸 Jaz", { permanent: false }); }
+
+      // Send to server
+      const now = Date.now();
+      if (now - lastSent >= SEND_INTERVAL) {
+        lastSent = now;
+        sendMyLocation(loc);
+        if (followingGroupId) sendGroupLocation(followingGroupId, loc);
+        checkProximity();
+        renderGroupList();
+      }
+    },
+    (err) => {
+      document.getElementById("gps-dot").className = "dot";
+      document.getElementById("gps-lbl").textContent = "GPS napaka";
+      document.getElementById("my-coords").textContent = err;
+      gpsTracker = null;
+    }
+  );
+  gpsTracker.start();
+}
+
+async function sendMyLocation(loc) {
+  try {
+    await apiFetch("/location/update", { method: "POST", body: JSON.stringify({ lat: loc.lat, lng: loc.lng, source: "gps" }) });
+  } catch {}
+}
+
+// ---- WebSocket ----
+function initWS() {
+  wsConn = new ReconnectingWS(
+    `${WS_BASE}/ws/photographer/${photographerId}?token=${token.get()}`,
+    (msg) => {
+      if (msg.type === "full_state") {
+        msg.groups?.forEach(g => {
+          updateGroup(g);
+          if (g.trail?.length > 1 && map) {
+            const pts = g.trail.map(p => [p.lat, p.lng]);
+            if (groupTrails[g.id]) groupTrails[g.id].setLatLngs(pts);
+            else groupTrails[g.id] = L.polyline(pts, { color: g.color, weight: 2, opacity: 0.5 }).addTo(map);
+          }
+        });
+      } else if (msg.type === "location_update") {
+        if (groups[msg.group_id]) {
+          groups[msg.group_id].location = { lat: msg.lat, lng: msg.lng };
+          updateGroupMarker(msg.group_id);
+          renderGroupList();
+        }
+      } else if (msg.type === "group_status") {
+        if (groups[msg.group_id]) Object.assign(groups[msg.group_id], msg);
+        renderGroupList();
+      } else if (msg.type === "proximity_alert") {
+        showAlert(msg);
+      } else if (msg.type === "group_created" || msg.type === "group_updated") {
+        updateGroup(msg.group);
+      } else if (msg.type === "route_updated") {
+        if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+        if (msg.waypoints?.length > 1) {
+          routeLayer = L.polyline(msg.waypoints.map(w => [w.lat, w.lng]), { color: "#f59e0b", weight: 3, opacity: 0.5, dashArray: "8 6" }).addTo(map);
+        }
+      }
+    }
+  );
+}
+
+function updateGroup(g) {
+  groups[g.id] = { ...(groups[g.id] || {}), ...g };
+  updateGroupMarker(g.id);
+  renderGroupList();
+}
+
+function updateGroupMarker(groupId) {
+  const g = groups[groupId];
+  if (!g?.location?.lat) return;
+  const pos = [g.location.lat, g.location.lng];
+  if (groupMarkers[groupId]) groupMarkers[groupId].setLatLng(pos).setIcon(createGroupMarker(g));
+  else {
+    groupMarkers[groupId] = L.marker(pos, { icon: createGroupMarker(g) }).addTo(map);
+    groupMarkers[groupId].bindPopup(`<strong>Skupina ${g.number} – ${g.name}</strong>`);
+  }
+  // Trail
+  if (!groupTrails[groupId]) groupTrails[groupId] = L.polyline([], { color: g.color, weight: 2, opacity: 0.5 }).addTo(map);
+  const pts = groupTrails[groupId].getLatLngs();
+  pts.push(pos);
+  if (pts.length > 100) pts.shift();
+  groupTrails[groupId].setLatLngs(pts);
+}
+
+// ---- Proximity alerts ----
+function checkProximity() {
+  if (myLat === null) return;
+  // Server handles alerts via WebSocket, but we can also check locally
+  Object.values(groups).filter(g => g.has_started && !g.has_finished && g.location).forEach(g => {
+    const dist = haversine(myLat, myLng, g.location.lat, g.location.lng);
+    if (dist < 300) {
+      // Already handled server-side, this is just local fallback
+    }
+  });
+}
+
+function showAlert(msg) {
+  const id = Date.now();
+  const overlay = document.getElementById("alert-overlay");
+  const div = document.createElement("div");
+  div.className = "alert-card";
+  div.innerHTML = `
+    <div class="alert-icon">📸</div>
+    <div>
+      <div class="alert-title">${msg.group_name} se bliža!</div>
+      <div class="alert-sub">Razdalja: ~${msg.distance_meters}m</div>
+    </div>
+    <div class="alert-dismiss">✕</div>
+  `;
+  div.onclick = () => div.remove();
+  overlay.appendChild(div);
+  notify(`📸 ${msg.group_name} se bliža!`, `Razdalja: ~${msg.distance_meters}m`);
+  setTimeout(() => div.remove(), 15000);
+
+  // Fly to group
+  const g = Object.values(groups).find(g => g.id === msg.group_id);
+  if (g?.location && map) map.flyTo([g.location.lat, g.location.lng], 16, { duration: 1.5 });
+}
+
+// ---- Send group location (follow mode / pin) ----
+async function sendGroupLocation(groupId, loc) {
+  try {
+    await apiFetch(`/location/update-group/${groupId}`, {
+      method: "POST",
+      body: JSON.stringify({ lat: loc.lat, lng: loc.lng, source: "photographer" }),
+    });
+  } catch {}
+}
+
+async function pinGroupLocation(groupId) {
+  if (myLat === null) { alert("Najprej aktiviraj GPS!"); return; }
+  await sendGroupLocation(groupId, { lat: myLat, lng: myLng });
+  const g = groups[groupId];
+  addLogEntry(`📍 Lokacija za skupino ${g?.number} poslana`);
+}
+
+// ---- Follow mode ----
+function setFollowGroup(groupId) {
+  followingGroupId = groupId;
+  const g = groups[groupId];
+  if (!g) return;
+  document.getElementById("follow-label").textContent = `Skupina ${g.number} – ${g.name}`;
+  document.getElementById("follow-bar").classList.add("active");
+  if (myLat !== null) sendGroupLocation(groupId, { lat: myLat, lng: myLng });
+  renderGroupList();
+}
+
+function stopFollowing() {
+  followingGroupId = null;
+  document.getElementById("follow-bar").classList.remove("active");
+  renderGroupList();
+}
+
+// ---- Group list ----
+function bleCodeForGroup(g) { return `ST-${String(g.number).padStart(2,'0')}`; }
+
+function renderGroupList() {
+  const scroll = document.getElementById("groups-scroll");
+  const sorted = Object.values(groups).sort((a, b) => a.number - b.number);
+  scroll.innerHTML = sorted.map(g => {
+    let dist = "–";
+    if (myLat !== null && g.location?.lat) {
+      const d = haversine(myLat, myLng, g.location.lat, g.location.lng);
+      dist = d < 1000 ? `${Math.round(d)}m` : `${(d / 1000).toFixed(1)}km`;
+    }
+    const isFollowing = followingGroupId === g.id;
+    const status = g.has_finished ? "✓" : g.has_started ? "●" : "○";
+    const followBtn = isFollowing
+      ? `<button class="follow-btn active" onclick="event.stopPropagation();stopFollowing()" title="Ustavi sledenje">⏹</button>`
+      : `<button class="follow-btn" onclick="event.stopPropagation();setFollowGroup(${g.id})" title="Začni slediti tej skupini">📍 Sledi</button>`;
+    return `<div class="pg-card ${isFollowing ? 'following' : ''}" onclick="flyToGroup(${g.id})">
+      <div class="pg-dot" style="background:${g.color}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="pg-name">${status} Skupina ${g.number}</div>
+        <div class="ble-code">${bleCodeForGroup(g)}</div>
+      </div>
+      <span class="pg-dist">${dist}</span>
+      ${followBtn}
+    </div>`;
+  }).join("");
+}
+
+// ---- BLE scanning ----
+function findGroupByBLEName(name) {
+  if (!name) return null;
+  const m = name.match(/^ST-?0*(\d+)$/i);
+  if (!m) return null;
+  const num = parseInt(m[1]);
+  return Object.values(groups).find(g => g.number === num) || null;
+}
+
+async function toggleBLEScan() {
+  if (bleScanActive) { stopBLEScan(); return; }
+  if (!navigator.bluetooth) {
+    alert("Bluetooth ni podprt v tem brskalniku.
+Uporabi Chrome na Androidu.");
+    return;
+  }
+  bleDevices = {};
+  document.getElementById("ble-panel").classList.add("show");
+  document.getElementById("ble-toggle-btn").classList.add("active");
+  document.getElementById("ble-toggle-btn").textContent = "📶 Ustavi";
+  bleScanActive = true;
+
+  // Try experimental passive scan (Chrome with flag or newer versions)
+  if (typeof navigator.bluetooth.requestLEScan === "function") {
+    try {
+      bleScanHandle = await navigator.bluetooth.requestLEScan({ acceptAllAdvertisements: true });
+      navigator.bluetooth.addEventListener("advertisementreceived", onBLEAdvertisement);
+      renderBLEPanel("Pasivno skeniranje aktivo…");
+      return;
+    } catch {}
+  }
+  // Fallback: manual device picker (user selects a device)
+  renderBLEPanel("Tapni naprava za ročno izbiro…");
+  manualBLEScan();
+}
+
+function stopBLEScan() {
+  bleScanActive = false;
+  if (bleScanHandle) { try { bleScanHandle.stop(); } catch {} bleScanHandle = null; }
+  navigator.bluetooth?.removeEventListener?.("advertisementreceived", onBLEAdvertisement);
+  document.getElementById("ble-panel").classList.remove("show");
+  document.getElementById("ble-toggle-btn").classList.remove("active");
+  document.getElementById("ble-toggle-btn").textContent = "📶 BLE";
+}
+
+function onBLEAdvertisement(event) {
+  const id = event.device.id;
+  const name = event.device.name || event.localName || null;
+  const rssi = event.rssi ?? null;
+  const matchedGroup = findGroupByBLEName(name);
+  bleDevices[id] = { name: name || id.slice(-8), rssi, lastSeen: Date.now(), matchedGroup };
+  renderBLEPanel();
+  // If strong signal and matched, auto-suggest follow
+  if (matchedGroup && followingGroupId !== matchedGroup.id && rssi && rssi > -70) {
+    if (confirm(`BLE: Zaznana skupina ${matchedGroup.number} (signal: ${rssi} dBm)
+Začni slediti?`)) {
+      setFollowGroup(matchedGroup.id);
+    }
+  }
+}
+
+async function manualBLEScan() {
+  try {
+    const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true });
+    const name = device.name || null;
+    const matchedGroup = findGroupByBLEName(name);
+    bleDevices[device.id] = { name: name || device.id.slice(-8), rssi: null, lastSeen: Date.now(), matchedGroup };
+    renderBLEPanel();
+    if (matchedGroup) {
+      if (confirm(`Zaznana skupina ${matchedGroup.number} – ${matchedGroup.name}.
+Začni slediti z GPS?`)) {
+        setFollowGroup(matchedGroup.id);
+      }
+    }
+  } catch {}
+  bleScanActive = false;
+  document.getElementById("ble-toggle-btn").classList.remove("active");
+  document.getElementById("ble-toggle-btn").textContent = "📶 BLE";
+}
+
+function renderBLEPanel(statusMsg) {
+  const panel = document.getElementById("ble-panel");
+  const devices = Object.values(bleDevices).sort((a, b) => (b.rssi ?? -100) - (a.rssi ?? -100));
+  const titleHtml = `<div id="ble-panel-title">📶 Zaznane naprave${statusMsg ? ' – ' + statusMsg : ''}</div>`;
+  if (!devices.length) {
+    panel.innerHTML = titleHtml + '<div style="padding:6px 8px;font-size:0.78rem;color:var(--muted)">Iščem naprave…</div>';
+    return;
+  }
+  panel.innerHTML = titleHtml + devices.map(d => {
+    const rssiStr = d.rssi !== null ? `${d.rssi} dBm` : "?";
+    const bars = d.rssi === null ? "?" : d.rssi > -60 ? "▓▓▓" : d.rssi > -75 ? "▓▓░" : "▓░░";
+    const matchBadge = d.matchedGroup
+      ? `<span class="ble-match-badge" onclick="event.stopPropagation();setFollowGroup(${d.matchedGroup.id})">→ Sl. ${d.matchedGroup.number}</span>`
+      : "";
+    return `<div class="ble-device ${d.matchedGroup ? 'matched' : ''}" onclick="bleDeviceClick('${d.name}',${d.matchedGroup?.id ?? 'null'})">
+      <div class="ble-dev-name">${d.name}</div>
+      ${matchBadge}
+      <div class="ble-dev-rssi">${bars} ${rssiStr}</div>
+    </div>`;
+  }).join("");
+}
+
+function bleDeviceClick(deviceName, groupId) {
+  if (groupId) { setFollowGroup(groupId); return; }
+  // Unknown device – let user pick group manually
+  const sorted = Object.values(groups).sort((a, b) => a.number - b.number);
+  const opts = sorted.map(g => `${g.number}: ${g.name}`).join("
+");
+  const pick = prompt(`Naprava "${deviceName}" ni prepoznana.
+Vnesi številko skupine:
+${opts}`);
+  if (!pick) return;
+  const num = parseInt(pick);
+  const g = sorted.find(x => x.number === num);
+  if (g) setFollowGroup(g.id);
+}
+
+function addLogEntry(msg) {
+  // Simple log to coords area briefly
+  const el = document.getElementById("my-coords");
+  const prev = el.textContent;
+  el.textContent = msg;
+  setTimeout(() => { el.textContent = prev; }, 2000);
+}
+
+function flyToGroup(groupId) {
+  const g = groups[groupId];
+  if (g?.location) map.flyTo([g.location.lat, g.location.lng], 17, { duration: 1 });
+}
+
+// Refresh group list + distances every 2s
+setInterval(renderGroupList, 2000);
+
+function togglePanel() {
+  panelOpen = !panelOpen;
+  document.getElementById("side-panel").classList.toggle("open", panelOpen);
+  document.getElementById("panel-toggle").textContent = panelOpen ? "✕" : "☰";
+}
+
+function logout() {
+  token.remove(); location.reload();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Urednik Trase – Štafetni Tek</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/lib/leaflet.css"/>
+<style>
+  :root {
+    --blue: #3b82f6; --blue-dk: #1d4ed8;
+    --bg: #060a10; --surface: #0d1520; --surface2: #111d2b;
+    --border: #1e3048; --text: #e2edff; --muted: #4a6785;
+    --green: #22c55e; --red: #ef4444; --amber: #f59e0b;
+  }
+  [data-theme="light"] {
+    --bg: #f0f4ff; --surface: #ffffff; --surface2: #e8eeff;
+    --border: #c5d3f0; --text: #0f1a3a; --muted: #4a6785;
+  }
+  html, body { transition: background 0.3s, color 0.3s; }
+  #theme-btn-route { background:transparent; border:1px solid var(--border); border-radius:8px; padding:7px 11px; color:var(--muted); cursor:pointer; font-size:0.85rem; line-height:1; }
+  #theme-btn-route:hover { color:var(--text); border-color:var(--muted); }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; background: var(--bg); color: var(--text); font-family: 'Space Grotesk', sans-serif; overflow: hidden; }
+
+  /* ---- Topbar ---- */
+  #topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 1000; height: 54px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 14px; gap: 8px;
+  }
+  .topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 1.3rem; font-weight: 900; color: var(--blue); letter-spacing: 0.05em; flex: 1; white-space: nowrap; }
+
+  /* ---- Sidebar ---- */
+  #sidebar {
+    position: fixed; left: 0; top: 54px; bottom: 0; z-index: 100; width: 300px;
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  /* ---- Map ---- */
+  #map { position: fixed; left: 300px; top: 54px; right: 0; bottom: 0; z-index: 1; cursor: crosshair; }
+  #map.no-crosshair { cursor: default; }
+
+  /* ---- Buttons ---- */
+  .btn {
+    padding: 8px 12px; border: none; border-radius: 8px;
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.8rem;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .btn-primary { background: var(--blue); color: white; }
+  .btn-primary:hover { background: var(--blue-dk); }
+  .btn-success { background: #16a34a; color: white; }
+  .btn-success:hover { background: #15803d; }
+  .btn-danger { background: var(--red); color: white; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .btn-outline:hover { color: var(--text); border-color: var(--muted); }
+  .btn-amber { background: var(--amber); color: #000; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ---- Stats ---- */
+  .stats-grid {
+    padding: 12px 14px; border-bottom: 1px solid var(--border);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .stat-box { background: var(--surface2); border-radius: 8px; padding: 10px 12px; text-align: center; }
+  .stat-val { font-family: 'Barlow Condensed', sans-serif; font-size: 1.4rem; font-weight: 900; color: var(--blue); line-height: 1; }
+  .stat-lbl { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 3px; }
+
+  /* ---- Simplify bar ---- */
+  #simplify-bar {
+    display: none; padding: 10px 14px; background: rgba(245,158,11,0.08);
+    border-bottom: 1px solid rgba(245,158,11,0.2); gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  #simplify-bar.show { display: flex; }
+  .simplify-info { font-size: 0.78rem; color: var(--amber); flex: 1; }
+
+  /* ---- Waypoint list ---- */
+  .list-header {
+    padding: 9px 14px; font-size: 0.7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  #waypoint-list { flex: 1; overflow-y: auto; padding: 8px; }
+  #waypoint-list::-webkit-scrollbar { width: 4px; }
+  #waypoint-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .wp-item {
+    display: flex; align-items: center; gap: 7px; padding: 7px 9px;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 5px;
+    transition: border-color 0.15s;
+  }
+  .wp-item:hover { border-color: var(--blue); }
+  .wp-badge {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--blue);
+    color: white; font-size: 0.65rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-family: 'Barlow Condensed', sans-serif;
+  }
+  .wp-badge.start { background: var(--green); }
+  .wp-badge.finish { background: var(--red); }
+  .wp-name { flex: 1; background: transparent; border: none; color: var(--text); font-size: 0.8rem; font-family: 'Space Grotesk', sans-serif; outline: none; min-width: 0; }
+  .wp-name::placeholder { color: var(--muted); }
+  .wp-coords { font-size: 0.6rem; color: var(--muted); font-family: monospace; white-space: nowrap; }
+  .wp-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; padding: 2px 4px; border-radius: 4px; flex-shrink: 0; line-height: 1; }
+  .wp-del:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+
+  .hint { padding: 24px 16px; text-align: center; color: var(--muted); font-size: 0.82rem; line-height: 1.6; }
+
+  /* ---- Footer ---- */
+  .sidebar-footer { padding: 10px 14px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .footer-hint { font-size: 0.72rem; color: var(--muted); line-height: 1.4; }
+
+  /* ---- Floating distance bar ---- */
+  #dist-bar {
+    position: fixed; bottom: 16px; left: 316px; z-index: 500;
+    background: rgba(13,21,32,0.92); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 16px; display: flex; gap: 16px; align-items: center; backdrop-filter: blur(8px);
+  }
+  .dist-item { display: flex; align-items: baseline; gap: 5px; }
+  .dist-val { font-family: 'Barlow Condensed', sans-serif; font-size: 1.2rem; font-weight: 900; color: var(--blue); }
+  .dist-lbl { font-size: 0.66rem; color: var(--muted); text-transform: uppercase; }
+  .dist-sep { width: 1px; height: 24px; background: var(--border); }
+
+  /* ---- Segment tooltip ---- */
+  .seg-dist { background: rgba(59,130,246,0.8); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; border: none; white-space: nowrap; }
+
+  @media (max-width: 720px) {
+    #sidebar { width: 100%; height: 42vh; top: auto; bottom: 0; border-right: none; border-top: 1px solid var(--border); }
+    #map { left: 0; bottom: 42vh; }
+    #dist-bar { left: 12px; bottom: calc(42vh + 10px); right: 12px; }
+    .topbar-title { font-size: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div id="topbar">
+  <div class="topbar-title">🗺 Urednik Trase</div>
+  <label class="btn btn-outline" for="gpx-input" title="Uvozi GPX datoteko">⬆ GPX</label>
+  <input type="file" id="gpx-input" accept=".gpx,.xml" style="display:none" onchange="importGPX(this)">
+  <button class="btn btn-outline" onclick="exportGPX()" title="Izvozi kot GPX">⬇ GPX</button>
+  <button class="btn btn-outline" onclick="fitBounds()" title="Prikaži celotno traso">⤢</button>
+  <button class="btn btn-outline" onclick="undoLast()" title="Odstrani zadnjo točko">↩</button>
+  <button class="btn btn-danger" onclick="clearAll()">✕ Počisti</button>
+  <button class="btn btn-success" id="save-btn" onclick="saveRoute()">✓ Shrani</button>
+  <button id="theme-btn-route" onclick="toggleTheme()">☀️</button>
+  <a href="/admin.html" class="btn btn-outline">← Admin</a>
+</div>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div class="stats-grid">
+    <div class="stat-box">
+      <div class="stat-val" id="stat-dist">0.00</div>
+      <div class="stat-lbl">km skupaj</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="stat-pts">0</div>
+      <div class="stat-lbl">točk</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="stat-time">–</div>
+      <div class="stat-lbl">čas (6 min/km)</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="stat-seg">0</div>
+      <div class="stat-lbl">odsekov</div>
+    </div>
+  </div>
+
+  <div id="simplify-bar">
+    <span class="simplify-info" id="simplify-info"></span>
+    <button class="btn btn-amber" onclick="simplify(20)" style="font-size:0.72rem;padding:5px 10px">Min 20m</button>
+    <button class="btn btn-amber" onclick="simplify(50)" style="font-size:0.72rem;padding:5px 10px">Min 50m</button>
+    <button class="btn btn-outline" onclick="hideSimplifyBar()" style="font-size:0.72rem;padding:5px 10px">Ohrani vse</button>
+  </div>
+
+  <div class="list-header">Točke trase (<span id="list-count">0</span>)</div>
+  <div id="waypoint-list"><div class="hint">Klikni na karto za dodajanje točk.<br>Oznake so premakljive z vlečenjem.<br><br>Ali uvozi obstoječo traso z gumbom ⬆ GPX.</div></div>
+
+  <div class="sidebar-footer">
+    <div class="footer-hint">Klikni na karto · Vleci oznake · Uvozi GPX</div>
+  </div>
+</div>
+
+<!-- Map -->
+<div id="map"></div>
+
+<!-- Distance bar -->
+<div id="dist-bar">
+  <div class="dist-item"><span class="dist-val" id="bar-dist">0.00</span><span class="dist-lbl">km</span></div>
+  <div class="dist-sep"></div>
+  <div class="dist-item"><span class="dist-val" id="bar-pts">0</span><span class="dist-lbl">točk</span></div>
+  <div class="dist-sep"></div>
+  <div class="dist-item"><span class="dist-val" id="bar-time">–</span><span class="dist-lbl">čas</span></div>
+</div>
+
+<script src="/lib/leaflet.js"></script>
+<script src="/src/utils/shared.js?v=3"></script>
+<script>
+const { token, apiFetch } = window.ST;
+
+// ---- State ----
+let routeTileLayer = null;
+let waypoints = [];   // [{id, lat, lng, name}]
+let markers = {};     // id -> L.Marker
+let polyline = null;
+let nextId = 0;
+let eventId = null;
+let map;
+
+// ---- Init ----
+// ---- Theme ----
+(function() {
+  const t = localStorage.getItem("st_theme") || "dark";
+  document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "");
+  window.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("theme-btn-route");
+    if (btn) btn.textContent = t === "light" ? "🌙" : "☀️";
+  });
+})();
+function toggleTheme() {
+  const t = localStorage.getItem("st_theme") || "dark";
+  const n = t === "dark" ? "light" : "dark";
+  localStorage.setItem("st_theme", n);
+  document.documentElement.setAttribute("data-theme", n === "light" ? "light" : "");
+  document.getElementById("theme-btn-route").textContent = n === "light" ? "🌙" : "☀️";
+  if (routeTileLayer && map) {
+    map.removeLayer(routeTileLayer);
+    routeTileLayer = L.tileLayer(
+      n === "light" ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                    : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      { maxZoom: 19 }
+    ).addTo(map);
+  }
+}
+
+async function init() {
+  if (!token.get()) { location.href = '/admin.html'; return; }
+
+  const cfg = await fetch("/api/public/event").then(r => r.json()).catch(() => ({}));
+  map = L.map("map", { zoomControl: true, attributionControl: false })
+    .setView([cfg.map_center_lat || 46.0569, cfg.map_center_lng || 14.5058], cfg.map_zoom || 13);
+
+  const savedTheme = localStorage.getItem("st_theme") || "dark";
+  routeTileLayer = L.tileLayer(
+    savedTheme === "light" ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                           : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    { maxZoom: 19 }
+  ).addTo(map);
+  map.on("click", onMapClick);
+
+  // Load existing route
+  try {
+    const ev = await apiFetch("/admin/event");
+    eventId = ev.id;
+    if (ev.route_waypoints?.length > 0) {
+      ev.route_waypoints.forEach(w => addWaypoint(w.lat, w.lng, w.name || "", false));
+      refresh();
+      fitBounds();
+    }
+  } catch {
+    // not admin or no event
+  }
+}
+
+// ---- Map click ----
+function onMapClick(e) {
+  addWaypoint(e.latlng.lat, e.latlng.lng, "", true);
+}
+
+// ---- Add / Remove waypoints ----
+function addWaypoint(lat, lng, name = "", doRefresh = true) {
+  const id = nextId++;
+  waypoints.push({ id, lat: round6(lat), lng: round6(lng), name });
+  if (doRefresh) refresh();
+}
+
+function removeWaypoint(id) {
+  waypoints = waypoints.filter(w => w.id !== id);
+  refresh();
+}
+
+function updateName(id, val) {
+  const w = waypoints.find(w => w.id === id);
+  if (w) w.name = val;
+}
+
+function undoLast() {
+  if (!waypoints.length) return;
+  removeWaypoint(waypoints[waypoints.length - 1].id);
+}
+
+function clearAll() {
+  if (waypoints.length > 0 && !confirm("Počisti celotno traso?")) return;
+  waypoints = [];
+  refresh();
+}
+
+// ---- Refresh: markers + polyline + list + stats ----
+function refresh() {
+  rebuildMarkers();
+  updatePolyline();
+  renderList();
+  updateStats();
+}
+
+function rebuildMarkers() {
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
+  const n = waypoints.length;
+  waypoints.forEach((wp, idx) => {
+    const isStart = idx === 0;
+    const isFinish = idx === n - 1 && n > 1;
+    const color = isStart ? "#22c55e" : isFinish ? "#ef4444" : "#3b82f6";
+    const label = isStart ? "S" : isFinish ? "F" : (idx + 1);
+
+    const icon = L.divIcon({
+      html: `<div style="width:28px;height:28px;border-radius:50%;background:${color};border:3px solid white;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:0.75rem;color:white;box-shadow:0 2px 8px rgba(0,0,0,0.5);cursor:grab">${label}</div>`,
+      className: "", iconSize: [28, 28], iconAnchor: [14, 14],
+    });
+
+    const marker = L.marker([wp.lat, wp.lng], { icon, draggable: true }).addTo(map);
+    marker.bindTooltip(wp.name || `Točka ${idx + 1}`, { direction: "top", offset: [0, -16] });
+    marker.on("dragend", (e) => {
+      const ll = e.target.getLatLng();
+      wp.lat = round6(ll.lat); wp.lng = round6(ll.lng);
+      updatePolyline(); renderList(); updateStats();
+      marker.setTooltipContent(wp.name || `Točka ${waypoints.indexOf(wp) + 1}`);
+    });
+    marker.on("click", (e) => L.DomEvent.stopPropagation(e));
+    markers[wp.id] = marker;
+  });
+}
+
+function updatePolyline() {
+  if (polyline) { map.removeLayer(polyline); polyline = null; }
+  if (waypoints.length > 1) {
+    polyline = L.polyline(waypoints.map(w => [w.lat, w.lng]), {
+      color: "#3b82f6", weight: 4, opacity: 0.85,
+    }).addTo(map);
+  }
+}
+
+// ---- List rendering ----
+function renderList() {
+  const list = document.getElementById("waypoint-list");
+  document.getElementById("list-count").textContent = waypoints.length;
+
+  if (!waypoints.length) {
+    list.innerHTML = '<div class="hint">Klikni na karto za dodajanje točk.<br>Oznake so premakljive z vlečenjem.<br><br>Ali uvozi obstoječo traso z gumbom ⬆ GPX.</div>';
+    return;
+  }
+
+  const n = waypoints.length;
+  list.innerHTML = waypoints.map((wp, idx) => {
+    const badgeClass = idx === 0 ? "start" : idx === n - 1 ? "finish" : "";
+    const badgeLabel = idx === 0 ? "S" : idx === n - 1 ? "F" : idx + 1;
+    // Segment distance from previous
+    let segInfo = "";
+    if (idx > 0) {
+      const d = haversine(waypoints[idx-1].lat, waypoints[idx-1].lng, wp.lat, wp.lng);
+      segInfo = `<span style="font-size:0.6rem;color:var(--blue);margin-right:2px">+${fmtDist(d)}</span>`;
+    }
+    return `<div class="wp-item">
+      <div class="wp-badge ${badgeClass}">${badgeLabel}</div>
+      <div style="flex:1;min-width:0">
+        <input class="wp-name" placeholder="Ime točke..." value="${esc(wp.name)}"
+          oninput="updateName(${wp.id}, this.value)"
+          onchange="refreshTooltip(${wp.id})">
+        <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+          ${segInfo}<span class="wp-coords">${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}</span>
+        </div>
+      </div>
+      <button class="wp-del" onclick="removeWaypoint(${wp.id})" title="Odstrani">✕</button>
+    </div>`;
+  }).join("");
+}
+
+function refreshTooltip(id) {
+  const wp = waypoints.find(w => w.id === id);
+  const idx = waypoints.indexOf(wp);
+  if (markers[id] && wp) markers[id].setTooltipContent(wp.name || `Točka ${idx + 1}`);
+}
+
+// ---- Stats ----
+function updateStats() {
+  const n = waypoints.length;
+  let total = 0;
+  for (let i = 1; i < n; i++) total += haversine(waypoints[i-1].lat, waypoints[i-1].lng, waypoints[i].lat, waypoints[i].lng);
+  const km = (total / 1000).toFixed(2);
+  const timeStr = total > 0 ? fmtTime(total) : "–";
+  document.getElementById("stat-dist").textContent = km;
+  document.getElementById("stat-pts").textContent = n;
+  document.getElementById("stat-time").textContent = timeStr;
+  document.getElementById("stat-seg").textContent = Math.max(0, n - 1);
+  document.getElementById("bar-dist").textContent = km;
+  document.getElementById("bar-pts").textContent = n;
+  document.getElementById("bar-time").textContent = timeStr;
+}
+
+// ---- Save ----
+async function saveRoute() {
+  if (!eventId) { alert("Ni aktivnega dogodka v bazi."); return; }
+  const btn = document.getElementById("save-btn");
+  btn.disabled = true; btn.textContent = "Shranjujem...";
+  try {
+    await apiFetch(`/admin/event/${eventId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ route_waypoints: waypoints.map(w => ({ lat: w.lat, lng: w.lng, name: w.name || "" })) }),
+    });
+    btn.textContent = "✓ Shranjeno!"; btn.style.background = "#16a34a";
+    setTimeout(() => { btn.textContent = "✓ Shrani"; btn.disabled = false; btn.style.background = ""; }, 2500);
+  } catch(e) {
+    alert("Napaka: " + e.message);
+    btn.textContent = "✓ Shrani"; btn.disabled = false;
+  }
+}
+
+// ---- Fit bounds ----
+function fitBounds() {
+  if (waypoints.length === 0) return;
+  map.fitBounds(L.latLngBounds(waypoints.map(w => [w.lat, w.lng])), { padding: [48, 48] });
+}
+
+// ---- GPX Import ----
+async function importGPX(input) {
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const doc = new DOMParser().parseFromString(text, "text/xml");
+    let pts = Array.from(doc.querySelectorAll("trkpt"));
+    if (!pts.length) pts = Array.from(doc.querySelectorAll("wpt"));
+    if (!pts.length) { alert("Ni GPS točk v tej GPX datoteki."); return; }
+
+    const parsed = pts.map(p => ({
+      lat: parseFloat(p.getAttribute("lat")),
+      lng: parseFloat(p.getAttribute("lon")),
+      name: p.querySelector("name")?.textContent?.trim() || "",
+    })).filter(p => !isNaN(p.lat) && !isNaN(p.lng));
+
+    if (!parsed.length) { alert("Ni veljavnih koordinat v GPX datoteki."); return; }
+
+    if (waypoints.length > 0 && !confirm(`Zamenjaj obstoječo traso z ${parsed.length} točkami iz GPX?`)) return;
+    waypoints = [];
+
+    parsed.forEach(p => addWaypoint(p.lat, p.lng, p.name, false));
+    refresh();
+    fitBounds();
+
+    if (parsed.length > 200) {
+      document.getElementById("simplify-info").textContent =
+        `Uvoženih ${parsed.length} točk. Poenostavi traso za boljšo zmogljivost?`;
+      document.getElementById("simplify-bar").classList.add("show");
+    }
+  } catch(e) { alert("Napaka pri branju GPX: " + e.message); }
+  input.value = "";
+}
+
+// ---- Simplify ----
+function simplify(minDistM) {
+  if (!waypoints.length) return;
+  const orig = waypoints.length;
+  const kept = [waypoints[0]];
+  for (let i = 1; i < waypoints.length - 1; i++) {
+    const prev = kept[kept.length - 1];
+    if (haversine(prev.lat, prev.lng, waypoints[i].lat, waypoints[i].lng) >= minDistM) kept.push(waypoints[i]);
+  }
+  if (waypoints.length > 1) kept.push(waypoints[waypoints.length - 1]);
+  waypoints = kept;
+  refresh();
+  hideSimplifyBar();
+  // Re-assign IDs
+  waypoints.forEach((w, i) => { if (w.id === undefined) w.id = nextId++; });
+}
+
+function hideSimplifyBar() {
+  document.getElementById("simplify-bar").classList.remove("show");
+}
+
+// ---- GPX Export ----
+function exportGPX() {
+  if (!waypoints.length) { alert("Ni točk za izvoz."); return; }
+  const trkpts = waypoints.map(w =>
+    `      <trkpt lat="${w.lat}" lon="${w.lng}">${w.name ? `<name>${esc(w.name)}</name>` : ""}</trkpt>`
+  ).join("\n");
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Štafetni Tek – Urednik Trase">
+  <trk>
+    <name>Štafetni Tek Trasa</name>
+    <trkseg>
+${trkpts}
+    </trkseg>
+  </trk>
+</gpx>`;
+  dlFile("trasa.gpx", gpx, "application/gpx+xml");
+}
+
+// ---- Helpers ----
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function fmtDist(m) {
+  return m < 1000 ? Math.round(m) + "m" : (m/1000).toFixed(1) + "km";
+}
+
+function fmtTime(distM) {
+  // 6 min/km pace
+  const mins = Math.round(distM / 1000 * 6);
+  if (mins < 60) return mins + "min";
+  return Math.floor(mins/60) + "h " + (mins%60) + "min";
+}
+
+function round6(n) { return parseFloat(n.toFixed(6)); }
+
+function esc(s) {
+  return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function dlFile(name, content, mime) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([content], { type: mime }));
+  a.download = name; a.click();
+}
+
+init();
+</script>
+</body>
+</html>

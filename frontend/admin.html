@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Štafeta – Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/lib/leaflet.css"/>
+<style>
+  :root {
+    --blue: #3b82f6; --blue-dk: #1d4ed8;
+    --bg: #060a10; --surface: #0d1520; --surface2: #111d2b;
+    --border: #1e3048; --text: #e2edff; --muted: #4a6785;
+    --green: #22c55e; --red: #ef4444; --amber: #f59e0b;
+  }
+  [data-theme="light"] {
+    --bg: #f0f4ff; --surface: #ffffff; --surface2: #e8eeff;
+    --border: #c5d3f0; --text: #0f1a3a; --muted: #4a6785;
+  }
+  html, body { transition: background 0.3s, color 0.3s; }
+  #theme-btn-admin {
+    padding: 9px 14px; border: 1px solid var(--border); border-radius: 8px;
+    background: transparent; color: var(--muted); cursor: pointer;
+    font-size: 0.9rem; line-height: 1; transition: background 0.2s;
+  }
+  #theme-btn-admin:hover { color: var(--text); border-color: var(--muted); }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width:100%; min-height:100%; background:var(--bg); color:var(--text); font-family:'Space Grotesk',sans-serif; }
+
+  /* Login */
+  #login-view { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:24px; }
+  .logo { font-family:'Barlow Condensed',sans-serif; font-size:2.5rem; font-weight:900; color:var(--blue); margin-bottom:4px; }
+  .logo-sub { font-size:0.75rem; color:var(--muted); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:40px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:28px 24px; width:100%; max-width:360px; }
+  .card h2 { font-size:1.2rem; margin-bottom:20px; }
+  label { display:block; font-size:0.75rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px; }
+  input, select, textarea {
+    width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px;
+    padding:11px 14px; color:var(--text); font-family:'Space Grotesk',sans-serif; font-size:0.9rem;
+    outline:none; transition:border-color 0.2s; margin-bottom:14px;
+  }
+  input:focus, select:focus, textarea:focus { border-color:var(--blue); }
+  .btn { padding:11px 18px; border:none; border-radius:9px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.85rem; cursor:pointer; transition:all 0.2s; }
+  .btn-primary { background:var(--blue); color:white; }
+  .btn-primary:hover { background:var(--blue-dk); }
+  .btn-success { background:#16a34a; color:white; }
+  .btn-success:hover { background:#15803d; }
+  .btn-danger { background:var(--red); color:white; }
+  .btn-danger:hover { background:#b91c1c; }
+  .btn-outline { background:transparent; border:1px solid var(--border); color:var(--muted); }
+  .btn-outline:hover { color:var(--text); border-color:var(--muted); }
+  .btn-amber { background:var(--amber); color:var(--bg); }
+  .btn-full { width:100%; }
+  .err { color:var(--red); font-size:0.8rem; margin-top:6px; }
+
+  /* Layout */
+  #admin-view { display:none; }
+  .admin-header {
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:14px 24px; display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; z-index:100;
+  }
+  .admin-header h1 { font-family:'Barlow Condensed',sans-serif; font-size:1.4rem; font-weight:900; color:var(--blue); letter-spacing:0.05em; }
+  .header-right { display:flex; align-items:center; gap:10px; }
+  .ws-badge { font-size:0.7rem; padding:4px 10px; border-radius:6px; display:flex; align-items:center; gap:5px; }
+  .ws-badge.on { background:rgba(34,197,94,0.15); color:var(--green); }
+  .ws-badge.off { background:rgba(239,68,68,0.15); color:var(--red); }
+  .dot { width:7px; height:7px; border-radius:50%; }
+  .dot.on { background:var(--green); }
+  .dot.off { background:var(--red); }
+
+  .admin-body { display:grid; grid-template-columns:1fr 380px; min-height:calc(100vh - 57px); }
+
+  /* Left panel - groups */
+  .left-panel { padding:24px; border-right:1px solid var(--border); }
+  .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .section-title { font-family:'Barlow Condensed',sans-serif; font-size:1rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); }
+
+  /* Stats row */
+  .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
+  .stat-box { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; text-align:center; }
+  .stat-num { font-family:'Barlow Condensed',sans-serif; font-size:2rem; font-weight:900; line-height:1; }
+  .stat-lbl { font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em; margin-top:4px; }
+  .stat-box.running .stat-num { color:var(--green); }
+  .stat-box.finished .stat-num { color:var(--blue); }
+  .stat-box.waiting .stat-num { color:var(--muted); }
+  .stat-box.live-count .stat-num { color:var(--amber); }
+
+  /* Groups table */
+  .groups-table { width:100%; border-collapse:collapse; }
+  .groups-table th { text-align:left; padding:8px 12px; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); border-bottom:1px solid var(--border); }
+  .groups-table td { padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:middle; font-size:0.83rem; }
+  .groups-table tr:hover td { background:var(--surface); }
+  .group-num { font-family:'Barlow Condensed',sans-serif; font-size:1.1rem; font-weight:700; }
+  .color-swatch { width:12px; height:12px; border-radius:3px; display:inline-block; vertical-align:middle; margin-right:4px; }
+  .status-pill { font-size:0.65rem; font-weight:700; padding:3px 8px; border-radius:5px; white-space:nowrap; }
+  .pill-waiting { background:rgba(74,103,133,0.2); color:var(--muted); }
+  .pill-running { background:rgba(34,197,94,0.15); color:var(--green); }
+  .pill-finished { background:rgba(59,130,246,0.15); color:var(--blue); }
+  .code-badge { font-family:monospace; font-size:0.8rem; background:var(--surface2); border:1px solid var(--border); padding:2px 7px; border-radius:5px; letter-spacing:0.1em; color:var(--amber); }
+  .action-btns { display:flex; gap:4px; }
+
+  /* Right panel */
+  .right-panel { padding:24px; display:flex; flex-direction:column; gap:20px; overflow-y:auto; }
+
+  /* Add group form */
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .form-row input { margin-bottom:0; }
+
+  /* Map preview */
+  #admin-map { height:250px; border-radius:12px; overflow:hidden; border:1px solid var(--border); }
+
+  /* Live log */
+  .live-log { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; }
+  .live-log-title { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:10px; }
+  .log-entries { max-height:200px; overflow-y:auto; display:flex; flex-direction:column-reverse; gap:4px; }
+  .log-entry { font-size:0.72rem; padding:4px 8px; border-radius:5px; display:flex; gap:8px; align-items:flex-start; }
+  .log-entry.ok { background:rgba(34,197,94,0.08); color:#86efac; }
+  .log-entry.warn { background:rgba(245,158,11,0.08); color:#fcd34d; }
+  .log-entry.info { background:rgba(59,130,246,0.08); color:#93c5fd; }
+  .log-time { color:var(--muted); white-space:nowrap; flex-shrink:0; font-family:monospace; }
+
+  /* Modal */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; display:none; align-items:center; justify-content:center; padding:20px; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:28px; width:100%; max-width:420px; }
+  .modal h3 { font-size:1.1rem; margin-bottom:20px; }
+  .modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:4px; }
+
+  @media (max-width: 900px) {
+    .admin-body { grid-template-columns:1fr; }
+    .right-panel { border-top:1px solid var(--border); }
+  }
+  /* Route editor */
+  .route-editor { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; }
+  .route-editor-hint { font-size:0.78rem; color:var(--muted); margin-bottom:10px; line-height:1.4; }
+  .route-waypoint-count { font-size:0.82rem; color:var(--blue); font-weight:600; margin-bottom:10px; }
+  .route-actions { display:flex; gap:6px; }
+  #admin-map { height:300px; border-radius:12px; overflow:hidden; border:1px solid var(--border); cursor:crosshair; }
+  #admin-map.normal-cursor { cursor:default; }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-view">
+  <div class="logo">⚙ Admin</div>
+  <div class="logo-sub">Štafetni Tek ŠCPET</div>
+  <div class="card">
+    <h2>Admin prijava</h2>
+    <label>Geslo</label>
+    <input type="password" id="admin-pw" placeholder="••••••" onkeydown="if(event.key==='Enter')login()">
+    <button class="btn btn-primary btn-full" onclick="login()">Prijava</button>
+    <div class="err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- Admin -->
+<div id="admin-view">
+  <div class="admin-header">
+    <h1>🌿 Admin – Štafetni Tek</h1>
+    <div class="header-right">
+      <div class="ws-badge off" id="ws-badge"><div class="dot off" id="ws-dot"></div><span id="ws-text">Offline</span></div>
+      <a href="/route.html" class="btn btn-outline" style="text-decoration:none">🗺 Urednik Trase</a>
+      <a href="/photographers.html" class="btn btn-outline" style="text-decoration:none">📸 Fotografi</a>
+      <button class="btn btn-outline" onclick="refreshStats()">↻ Osveži</button>
+      <button id="theme-btn-admin" onclick="toggleTheme()" title="Preklopi temo">☀️</button>
+      <button class="btn btn-outline" onclick="logout()">Izhod</button>
+    </div>
+  </div>
+
+  <div class="admin-body">
+    <!-- Left: groups -->
+    <div class="left-panel">
+      <div class="stats-row">
+        <div class="stat-box waiting"><div class="stat-num" id="s-total">0</div><div class="stat-lbl">Skupin</div></div>
+        <div class="stat-box running"><div class="stat-num" id="s-running">0</div><div class="stat-lbl">Tečejo</div></div>
+        <div class="stat-box finished"><div class="stat-num" id="s-finished">0</div><div class="stat-lbl">Končalo</div></div>
+        <div class="stat-box live-count"><div class="stat-num" id="s-viewers">0</div><div class="stat-lbl">Gledalcev</div></div>
+      </div>
+
+      <div class="section-header">
+        <span class="section-title">Skupine</span>
+        <button class="btn btn-primary" onclick="openAddModal()">+ Dodaj skupino</button>
+      </div>
+
+      <table class="groups-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Ime</th><th>Koda</th><th>Udeleženci</th><th>Status</th><th>Čas</th><th>Akcije</th>
+          </tr>
+        </thead>
+        <tbody id="groups-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Right: controls -->
+    <div class="right-panel">
+      <!-- Map preview -->
+      <div>
+        <div class="section-title" style="margin-bottom:10px">Live karta</div>
+        <div id="admin-map" class="normal-cursor"></div>
+      </div>
+
+      <!-- Route editor -->
+      <div class="route-editor">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <span class="section-title">Trasa teka</span>
+          <button class="btn btn-outline" id="edit-route-btn" onclick="toggleRouteEdit()">✎ Uredi traso</button>
+        </div>
+        <div id="route-editor-body" style="display:none">
+          <div class="route-editor-hint">Klikni na karto za dodajanje točk. Zadnjo točko odstraniš z gumbom Razveljavi.</div>
+          <div class="route-waypoint-count" id="waypoint-count">0 točk dodanih</div>
+          <div class="route-actions">
+            <button class="btn btn-outline" onclick="undoLastWaypoint()">↩ Razveljavi</button>
+            <button class="btn btn-danger" onclick="clearRoute()">✕ Počisti</button>
+            <button class="btn btn-success" style="flex:1" onclick="saveRoute()">✓ Shrani traso</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live log -->
+      <div class="live-log">
+        <div class="live-log-title">📡 Live dnevnik</div>
+        <div class="log-entries" id="log-entries"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit group modal -->
+<div class="modal-overlay" id="group-modal">
+  <div class="modal">
+    <h3 id="modal-title">Dodaj skupino</h3>
+    <input type="hidden" id="modal-group-id">
+    <label>Ime skupine</label>
+    <input type="text" id="m-name" placeholder="npr. Zeleni">
+    <div class="form-row">
+      <div>
+        <label>Številka</label>
+        <input type="number" id="m-number" placeholder="1" min="1">
+      </div>
+      <div>
+        <label>Število udeležencev</label>
+        <input type="number" id="m-members" placeholder="5" min="1" max="5">
+      </div>
+    </div>
+    <label>Barva</label>
+    <input type="color" id="m-color" value="#3b82f6" style="height:42px;cursor:pointer;">
+    <label style="margin-top:4px">Opombe</label>
+    <textarea id="m-notes" rows="2" placeholder="Opcionalno..."></textarea>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Prekliči</button>
+      <button class="btn btn-primary" onclick="saveGroup()">Shrani</button>
+    </div>
+  </div>
+</div>
+
+<script src="/lib/leaflet.js"></script>
+<script src="/src/utils/shared.js?v=3"></script>
+<script>
+const { token, apiFetch, ReconnectingWS, WS_BASE, formatElapsed } = window.ST;
+
+let groups = {}, map, groupMarkers = {}, groupTrails = {}, wsConn, adminTileLayer;
+
+// ---- Theme ----
+(function() {
+  const t = localStorage.getItem("st_theme") || "dark";
+  document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "");
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("theme-btn-admin");
+    if (btn) btn.textContent = t === "light" ? "🌙" : "☀️";
+  });
+})();
+
+function toggleTheme() {
+  const t = localStorage.getItem("st_theme") || "dark";
+  const newT = t === "dark" ? "light" : "dark";
+  localStorage.setItem("st_theme", newT);
+  document.documentElement.setAttribute("data-theme", newT === "light" ? "light" : "");
+  document.getElementById("theme-btn-admin").textContent = newT === "light" ? "🌙" : "☀️";
+  if (adminTileLayer && map) {
+    map.removeLayer(adminTileLayer);
+    adminTileLayer = L.tileLayer(
+      newT === "light" ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                       : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      { maxZoom:19 }
+    ).addTo(map);
+  }
+}
+const logItems = [];
+let routeEditMode = false, routeWaypoints = [], routePolyline = null, routeLayer = null, eventId = null;
+
+// ---- Auth ----
+window.addEventListener("load", () => {
+  if (token.payload()?.role === "admin") showAdmin();
+});
+
+async function login() {
+  const pw = document.getElementById("admin-pw").value;
+  try {
+    const res = await apiFetch("/auth/login", { method:"POST", body:JSON.stringify({ role:"admin", password:pw }) });
+    token.set(res.access_token);
+    showAdmin();
+  } catch(e) { document.getElementById("login-err").textContent = e.message; }
+}
+
+function showAdmin() {
+  document.getElementById("login-view").style.display = "none";
+  document.getElementById("admin-view").style.display = "block";
+  initMap();
+  loadGroups();
+  refreshStats();
+  loadEvent();
+  initWS();
+}
+
+function logout() { token.remove(); location.reload(); }
+
+// ---- Map ----
+async function initMap() {
+  const cfg = await fetch("/api/public/event").then(r => r.json()).catch(() => ({}));
+  map = L.map("admin-map", { zoomControl:true, attributionControl:false })
+    .setView([cfg.map_center_lat||46.0569, cfg.map_center_lng||14.5058], cfg.map_zoom||13);
+  const theme = localStorage.getItem("st_theme") || "dark";
+  adminTileLayer = L.tileLayer(
+    theme === "light" ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                      : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    { maxZoom:19 }
+  ).addTo(map);
+  if (cfg.route_waypoints?.length > 1) {
+    routeLayer = L.polyline(cfg.route_waypoints.map(w=>[w.lat,w.lng]), { color:"#3b82f6", weight:3, opacity:0.7, dashArray:"8 6" }).addTo(map);
+  }
+}
+
+function updateGroupMarker(g) {
+  if (!g.location?.lat || !map) return;
+  const pos = [g.location.lat, g.location.lng];
+  const icon = L.divIcon({
+    html: `<div style="width:26px;height:26px;border-radius:50%;background:${g.color};border:2px solid white;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:0.75rem;color:white;box-shadow:0 2px 6px rgba(0,0,0,0.4)">${g.number}</div>`,
+    className:"", iconSize:[26,26], iconAnchor:[13,13],
+  });
+  if (groupMarkers[g.id]) groupMarkers[g.id].setLatLng(pos).setIcon(icon);
+  else { groupMarkers[g.id] = L.marker(pos,{icon}).addTo(map).bindTooltip(`Skupina ${g.number}`); }
+  // Update trail
+  if (!groupTrails[g.id]) groupTrails[g.id] = L.polyline([], { color: g.color, weight: 2, opacity: 0.5 }).addTo(map);
+  const pts = groupTrails[g.id].getLatLngs();
+  pts.push(pos);
+  if (pts.length > 100) pts.shift();
+  groupTrails[g.id].setLatLngs(pts);
+}
+
+// ---- Load groups ----
+async function loadGroups() {
+  try {
+    const data = await apiFetch("/admin/groups");
+    groups = {};
+    data.forEach(g => { groups[g.id] = g; });
+    renderTable();
+  } catch(e) { addLog("Napaka nalaganja skupin: " + e.message, "warn"); }
+}
+
+function renderTable() {
+  const tbody = document.getElementById("groups-tbody");
+  const sorted = Object.values(groups).sort((a,b) => a.number - b.number);
+  tbody.innerHTML = sorted.map(g => {
+    let pill, pclass;
+    if (g.has_finished) { pill="✓ Končalo"; pclass="pill-finished"; }
+    else if (g.has_started) { pill="● Teče"; pclass="pill-running"; }
+    else { pill="○ Čaka"; pclass="pill-waiting"; }
+    const elapsedCell = g.has_started && !g.has_finished
+      ? `<span id="adm-elapsed-${g.id}">${formatElapsed(g.started_at)}</span>`
+      : g.has_finished && g.started_at ? formatElapsed(g.started_at) + " ✓" : "–";
+    return `<tr>
+      <td><span class="group-num" style="color:${g.color}">${g.number}</span></td>
+      <td><span class="color-swatch" style="background:${g.color}"></span>${g.name}</td>
+      <td><span class="code-badge">${g.join_code}</span></td>
+      <td>${g.member_count}</td>
+      <td><span class="status-pill ${pclass}">${pill}</span></td>
+      <td style="font-family:monospace;font-size:0.8rem;color:var(--green)">${elapsedCell}</td>
+      <td>
+        <div class="action-btns">
+          ${!g.has_started ? `<button class="btn btn-success" onclick="startGroup(${g.id})" title="Start">▶</button>` : ""}
+          ${g.has_started && !g.has_finished ? `<button class="btn btn-primary" onclick="finishGroup(${g.id})" title="Finish">⏹</button>` : ""}
+          <button class="btn btn-outline" onclick="editGroup(${g.id})" title="Uredi">✎</button>
+          <button class="btn btn-danger" onclick="deleteGroup(${g.id})" title="Briši">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+// ---- CRUD ----
+function openAddModal() {
+  document.getElementById("modal-title").textContent = "Dodaj skupino";
+  document.getElementById("modal-group-id").value = "";
+  document.getElementById("m-name").value = "";
+  document.getElementById("m-number").value = "";
+  document.getElementById("m-members").value = "1";
+  document.getElementById("m-color").value = "#3b82f6";
+  document.getElementById("m-notes").value = "";
+  document.getElementById("group-modal").classList.add("open");
+}
+
+function editGroup(id) {
+  const g = groups[id];
+  document.getElementById("modal-title").textContent = "Uredi skupino";
+  document.getElementById("modal-group-id").value = id;
+  document.getElementById("m-name").value = g.name;
+  document.getElementById("m-number").value = g.number;
+  document.getElementById("m-members").value = g.member_count;
+  document.getElementById("m-color").value = g.color;
+  document.getElementById("m-notes").value = g.notes || "";
+  document.getElementById("group-modal").classList.add("open");
+}
+
+function closeModal() { document.getElementById("group-modal").classList.remove("open"); }
+
+async function saveGroup() {
+  const id = document.getElementById("modal-group-id").value;
+  const data = {
+    name: document.getElementById("m-name").value,
+    number: parseInt(document.getElementById("m-number").value),
+    member_count: parseInt(document.getElementById("m-members").value),
+    color: document.getElementById("m-color").value,
+    notes: document.getElementById("m-notes").value,
+  };
+  try {
+    if (id) await apiFetch(`/admin/groups/${id}`, { method:"PATCH", body:JSON.stringify(data) });
+    else await apiFetch("/admin/groups", { method:"POST", body:JSON.stringify(data) });
+    closeModal();
+    await loadGroups();
+    addLog(`Skupina ${data.name} ${id ? "posodobljena" : "dodana"}`, "ok");
+  } catch(e) { alert("Napaka: " + e.message); }
+}
+
+async function deleteGroup(id) {
+  if (!confirm("Briši skupino?")) return;
+  try {
+    await apiFetch(`/admin/groups/${id}`, { method:"DELETE" });
+    await loadGroups();
+    addLog(`Skupina #${id} izbrisana`, "warn");
+  } catch(e) { alert("Napaka: " + e.message); }
+}
+
+async function startGroup(id) {
+  if (!confirm("Začni skupino?")) return;
+  try {
+    await apiFetch(`/admin/groups/${id}/start`, { method:"POST" });
+    groups[id].has_started = true;
+    groups[id].started_at = new Date().toISOString();
+    renderTable();
+    addLog(`Skupina #${id} je začela`, "ok");
+  } catch(e) { alert("Napaka: " + e.message); }
+}
+
+async function finishGroup(id) {
+  if (!confirm("Zaključi skupino?")) return;
+  try {
+    await apiFetch(`/admin/groups/${id}/finish`, { method:"POST" });
+    groups[id].has_finished = true;
+    groups[id].finished_at = new Date().toISOString();
+    renderTable();
+    addLog(`Skupina #${id} je zaključila`, "ok");
+  } catch(e) { alert("Napaka: " + e.message); }
+}
+
+// ---- Stats ----
+async function refreshStats() {
+  try {
+    const s = await apiFetch("/admin/stats");
+    document.getElementById("s-total").textContent = s.groups.total;
+    document.getElementById("s-running").textContent = s.groups.started - s.groups.finished;
+    document.getElementById("s-finished").textContent = s.groups.finished;
+    document.getElementById("s-viewers").textContent = s.websocket.viewers;
+  } catch {}
+}
+
+// ---- WebSocket ----
+function initWS() {
+  wsConn = new ReconnectingWS(
+    `${WS_BASE}/ws/admin?token=${token.get()}`,
+    (msg) => {
+      if (msg.type === "full_state") {
+        msg.groups?.forEach(g => {
+          groups[g.id] = { ...(groups[g.id]||{}), ...g };
+          updateGroupMarker(g);
+          if (g.trail?.length > 1 && map) {
+            const pts = g.trail.map(p => [p.lat, p.lng]);
+            if (groupTrails[g.id]) groupTrails[g.id].setLatLngs(pts);
+            else { groupTrails[g.id] = L.polyline(pts, { color: g.color, weight: 2, opacity: 0.5 }).addTo(map); }
+          }
+        });
+        renderTable();
+      } else if (msg.type === "location_update") {
+        if (groups[msg.group_id]) {
+          groups[msg.group_id].location = { lat: msg.lat, lng: msg.lng };
+          updateGroupMarker(groups[msg.group_id]);
+        }
+        addLog(`Skupina ${msg.group_id}: ${msg.lat?.toFixed(5)}, ${msg.lng?.toFixed(5)} [${msg.source||'gps'}]`, "ok");
+      } else if (msg.type === "group_status") {
+        if (groups[msg.group_id]) { Object.assign(groups[msg.group_id], msg); renderTable(); }
+        addLog(`Skupina ${msg.group_id}: ${msg.status}`, "info");
+      } else if (msg.type === "group_created") {
+        groups[msg.group.id] = msg.group; renderTable();
+        addLog(`Nova skupina: ${msg.group.name}`, "info");
+      } else if (msg.type === "group_deleted") {
+        delete groups[msg.group_id]; renderTable();
+        if (groupMarkers[msg.group_id]) { groupMarkers[msg.group_id].remove(); delete groupMarkers[msg.group_id]; }
+        if (groupTrails[msg.group_id]) { groupTrails[msg.group_id].remove(); delete groupTrails[msg.group_id]; }
+      } else if (msg.type === "route_updated") {
+        if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+        if (msg.waypoints?.length > 1) {
+          routeLayer = L.polyline(msg.waypoints.map(w=>[w.lat,w.lng]), { color:"#3b82f6", weight:3, opacity:0.7, dashArray:"8 6" }).addTo(map);
+        }
+        if (!routeEditMode) { routeWaypoints = msg.waypoints || []; }
+      }
+      refreshStats();
+    },
+    () => {
+      document.getElementById("ws-badge").className = "ws-badge on";
+      document.getElementById("ws-dot").className = "dot on";
+      document.getElementById("ws-text").textContent = "Live";
+    }
+  );
+}
+
+// ---- Log ----
+function addLog(msg, type = "info") {
+  const d = new Date();
+  const t = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+  logItems.unshift({ msg, type, t });
+  if (logItems.length > 100) logItems.pop();
+  document.getElementById("log-entries").innerHTML = logItems
+    .map(l => `<div class="log-entry ${l.type}"><span class="log-time">${l.t}</span>${l.msg}</div>`)
+    .join("");
+}
+
+// ---- Event / Route ----
+async function loadEvent() {
+  try {
+    const ev = await apiFetch("/admin/event");
+    eventId = ev.id;
+    routeWaypoints = ev.route_waypoints || [];
+    document.getElementById("waypoint-count").textContent = routeWaypoints.length + " točk dodanih";
+    drawAdminRoute();
+  } catch(e) { addLog("Napaka nalaganja dogodka: " + e.message, "warn"); }
+}
+
+function drawAdminRoute() {
+  if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
+  if (routeWaypoints.length > 1) {
+    routePolyline = L.polyline(routeWaypoints.map(w=>[w.lat,w.lng]), { color:"#60a5fa", weight:3, opacity:0.9, dashArray:"6 4" }).addTo(map);
+  }
+}
+
+function toggleRouteEdit() {
+  routeEditMode = !routeEditMode;
+  const btn = document.getElementById("edit-route-btn");
+  const body = document.getElementById("route-editor-body");
+  const mapEl = document.getElementById("admin-map");
+  btn.textContent = routeEditMode ? "✓ Zapri urednik" : "✎ Uredi traso";
+  btn.className = routeEditMode ? "btn btn-amber" : "btn btn-outline";
+  body.style.display = routeEditMode ? "block" : "none";
+  mapEl.className = routeEditMode ? "" : "normal-cursor";
+  if (routeEditMode) map.on("click", onRouteMapClick);
+  else map.off("click", onRouteMapClick);
+}
+
+function onRouteMapClick(e) {
+  routeWaypoints.push({ lat: parseFloat(e.latlng.lat.toFixed(6)), lng: parseFloat(e.latlng.lng.toFixed(6)) });
+  document.getElementById("waypoint-count").textContent = routeWaypoints.length + " točk dodanih";
+  drawAdminRoute();
+}
+
+function undoLastWaypoint() {
+  routeWaypoints.pop();
+  document.getElementById("waypoint-count").textContent = routeWaypoints.length + " točk dodanih";
+  drawAdminRoute();
+}
+
+function clearRoute() {
+  if (!confirm("Počisti celotno traso?")) return;
+  routeWaypoints = [];
+  document.getElementById("waypoint-count").textContent = "0 točk dodanih";
+  drawAdminRoute();
+}
+
+async function saveRoute() {
+  if (!eventId) { alert("Ni aktivnega dogodka"); return; }
+  try {
+    await apiFetch(`/admin/event/${eventId}`, { method:"PATCH", body:JSON.stringify({ route_waypoints: routeWaypoints }) });
+    addLog(`Trasa shranjena (${routeWaypoints.length} točk)`, "ok");
+    toggleRouteEdit();
+  } catch(e) { alert("Napaka: " + e.message); }
+}
+
+// Refresh stats + table every 2s
+setInterval(async () => { await refreshStats(); renderTable(); }, 2000);
+// Auto-update elapsed times in table every second
+setInterval(() => {
+  Object.values(groups).filter(g => g.has_started && !g.has_finished).forEach(g => {
+    const el = document.getElementById(`adm-elapsed-${g.id}`);
+    if (el) el.textContent = formatElapsed(g.started_at);
+  });
+}, 1000);
+</script>
+</body>
+</html>
