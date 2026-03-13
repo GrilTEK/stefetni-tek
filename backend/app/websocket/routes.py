@@ -95,7 +95,7 @@ async def ws_photographer(websocket: WebSocket, photographer_id: str, token: str
                 # Photographer can send their own location via WS too
                 if msg.get("type") == "location":
                     async with AsyncSessionLocal() as db:
-                        service = LocationService(db, redis_client)
+                        service = LocationService(db, await get_redis())
                         await service.update_photographer_location(
                             photographer_id, msg["lat"], msg["lng"]
                         )

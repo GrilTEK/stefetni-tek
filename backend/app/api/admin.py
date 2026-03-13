@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List
-from sqlalchemy import select, update
+from typing import Optional
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.redis import get_redis
@@ -160,9 +160,9 @@ async def update_event(event_id: int, data: EventUpdate, db: AsyncSession = Depe
 async def get_stats(db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
     from sqlalchemy import func
     groups_total = (await db.execute(select(func.count()).select_from(Group))).scalar()
-    groups_active = (await db.execute(select(func.count()).select_from(Group).where(Group.is_active == True))).scalar()
-    groups_started = (await db.execute(select(func.count()).select_from(Group).where(Group.has_started == True))).scalar()
-    groups_finished = (await db.execute(select(func.count()).select_from(Group).where(Group.has_finished == True))).scalar()
+    groups_active = (await db.execute(select(func.count()).select_from(Group).where(Group.is_active))).scalar()
+    groups_started = (await db.execute(select(func.count()).select_from(Group).where(Group.has_started))).scalar()
+    groups_finished = (await db.execute(select(func.count()).select_from(Group).where(Group.has_finished))).scalar()
     loc_count = (await db.execute(select(func.count()).select_from(LocationUpdate))).scalar()
     ws_stats = manager.get_stats()
     return {

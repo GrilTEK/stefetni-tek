@@ -4,7 +4,7 @@ from typing import Optional, List
 from datetime import datetime
 import redis.asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select
 from app.models.location import LocationUpdate, LocationSource
 from app.models.group import Group
 from app.models.event import Event
@@ -138,7 +138,7 @@ class LocationService:
 
     async def get_full_state(self) -> dict:
         """Snapshot of all groups with latest positions for new WS connections."""
-        result = await self.db.execute(select(Group).where(Group.is_active == True))
+        result = await self.db.execute(select(Group).where(Group.is_active))
         groups = result.scalars().all()
 
         locations = await self.get_all_latest_locations()
@@ -164,7 +164,7 @@ class LocationService:
     async def _check_photographer_alerts(self, group_id: int, lat: float, lng: float):
         """Check if any photographer is within alert distance of the group."""
         # Get alert distance from event config
-        event_result = await self.db.execute(select(Event).where(Event.is_active == True))
+        event_result = await self.db.execute(select(Event).where(Event.is_active))
         event = event_result.scalar_one_or_none()
         if not event:
             return

@@ -72,7 +72,7 @@ async def join_group(req: GroupJoinRequest, response: Response):
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(
-            select(Group).where(Group.join_code == req.join_code.upper(), Group.is_active == True)
+            select(Group).where(Group.join_code == req.join_code.upper(), Group.is_active)
         )
         group = result.scalar_one_or_none()
         if not group:

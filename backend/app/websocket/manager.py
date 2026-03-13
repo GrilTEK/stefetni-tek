@@ -1,6 +1,5 @@
-import json
 import asyncio
-from typing import Dict, Set, Any
+from typing import Dict, Set
 from fastapi import WebSocket
 import logging
 
@@ -28,7 +27,7 @@ class ConnectionManager:
     async def connect_admin(self, ws: WebSocket):
         await ws.accept()
         self.admins.add(ws)
-        logger.info(f"Admin connected.")
+        logger.info("Admin connected.")
 
     async def connect_photographer(self, ws: WebSocket, photographer_id: str):
         await ws.accept()
@@ -112,7 +111,6 @@ class ConnectionManager:
         await self._send(ws, {"type": "full_state", **state})
 
     async def _broadcast_to_set(self, connections: Set[WebSocket], data: dict):
-        dead = set()
         tasks = []
         for ws in connections:
             tasks.append(self._send(ws, data))

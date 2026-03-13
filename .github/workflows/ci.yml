@@ -265,7 +265,6 @@ jobs:
           3. Open the downloaded APK and tap Install
 
           > This is a debug build. Production release signing requires a keystore — see \`MOBILE.md\`." \
-            --prerelease \
             --latest \
             stefetni-tek-${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.sha }}.apk
         env:

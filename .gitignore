@@ -38,8 +38,6 @@ Thumbs.db
 # Misc
 claudechat.md
 stefetni-tek-final/
-{backend/
-nginx/
 
 # Claude Code session data
 .claude/
