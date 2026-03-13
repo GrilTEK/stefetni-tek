@@ -128,9 +128,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Check for JS syntax errors
         run: |
-          sudo apt-get install -y nodejs -qq
           echo "Checking JS files..."
           find frontend/src -name "*.js" | while read f; do
             node --check "$f" && echo "OK: $f" || { echo "FAIL: $f"; exit 1; }
@@ -181,16 +185,18 @@ jobs:
       - name: Check native.js syntax
         run: node --check frontend/src/utils/native.js
 
-      - name: Check capacitor.config.ts syntax
-        run: npx tsc --noEmit --allowJs --checkJs false --moduleResolution node --target es2020 --module commonjs capacitor.config.ts
+      - name: Check capacitor.config.ts
+        run: npx tsc --noEmit
         working-directory: mobile
 
-  # ── Android build ───────────────────────────────────────────────────────────
+  # ── Android build & release ─────────────────────────────────────────────────
   android-build:
-    name: Android – Debug APK
+    name: Android – Build & Release APK
     runs-on: ubuntu-latest
-    needs: mobile-check
-    if: github.ref == 'refs/heads/main'
+    needs: [mobile-check, frontend-check]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -215,38 +221,67 @@ jobs:
         run: npm ci
         working-directory: mobile
 
-      - name: Create www symlink
-        run: node scripts/symlink.js
-        working-directory: mobile
-
-      - name: Capacitor sync android
+      - name: Capacitor sync
         run: npx cap sync android
         working-directory: mobile
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
+      - name: Make gradlew executable
+        run: chmod +x gradlew
         working-directory: mobile/android
 
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug
-          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 7
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon
+        working-directory: mobile/android
+
+      - name: Get build metadata
+        id: meta
+        run: |
+          echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          echo "date=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+          echo "apk=mobile/android/app/build/outputs/apk/debug/app-debug.apk" >> $GITHUB_OUTPUT
+
+      - name: Rename APK with version info
+        run: |
+          cp ${{ steps.meta.outputs.apk }} \
+             stefetni-tek-${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.sha }}.apk
+
+      - name: Delete existing 'latest' release (if any)
+        run: gh release delete latest --yes --cleanup-tag || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        run: |
+          gh release create latest \
+            --title "Štafetni Tek – Latest Build (${{ steps.meta.outputs.date }} · ${{ steps.meta.outputs.sha }})" \
+            --notes "Automatically built from \`main\` on ${{ steps.meta.outputs.date }}.
+
+          **Commit:** \`${{ github.sha }}\`
+          **Message:** ${{ github.event.head_commit.message }}
+
+          ### Install on Android
+          1. Download the APK below
+          2. On your phone: Settings → Security → Allow unknown sources (or install from Files app)
+          3. Open the downloaded APK and tap Install
+
+          > This is a debug build. Production release signing requires a keystore — see \`MOBILE.md\`." \
+            --prerelease \
+            --latest \
+            stefetni-tek-${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.sha }}.apk
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ── iOS build (commented out – requires macOS runner + Apple Developer account)
   # ios-build:
   #   name: iOS – Debug IPA
   #   runs-on: macos-latest
   #   needs: mobile-check
-  #   if: github.ref == 'refs/heads/main'
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
   #   steps:
   #     - uses: actions/checkout@v4
   #     - uses: actions/setup-node@v4
   #       with: { node-version: "20" }
   #     - run: npm ci
-  #       working-directory: mobile
-  #     - run: node scripts/symlink.js
   #       working-directory: mobile
   #     - run: npx cap sync ios
   #       working-directory: mobile

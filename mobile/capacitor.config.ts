@@ -3,7 +3,7 @@ import { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "si.scpet.stefetnitek",
   appName: "Štafetni Tek",
-  webDir: "www",
+  webDir: "../frontend",
   server: {
     androidScheme: "https",
   },

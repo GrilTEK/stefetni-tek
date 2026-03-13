@@ -5,10 +5,11 @@ cd "$(dirname "$0")/.."
 MODE="${1:-debug}"
 
 echo "==> Syncing Capacitor..."
-bash scripts/sync.sh
+npx cap sync android
 
 echo "==> Building Android ($MODE)..."
 cd android
+chmod +x gradlew
 
 if [ "$MODE" = "release" ]; then
   if [ -z "${KEYSTORE_PATH:-}" ] || [ -z "${KEYSTORE_PASSWORD:-}" ] || \
@@ -23,6 +24,6 @@ if [ "$MODE" = "release" ]; then
     -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
   echo "==> Release bundle: app/build/outputs/bundle/release/app-release.aab"
 else
-  ./gradlew assembleDebug
+  ./gradlew assembleDebug --no-daemon
   echo "==> Debug APK: app/build/outputs/apk/debug/app-debug.apk"
 fi

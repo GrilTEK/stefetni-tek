@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Štafetni Tek</string>
+    <string name="title_activity_main">Štafetni Tek</string>
+    <string name="package_name">si.scpet.stefetnitek</string>
+    <string name="custom_url_scheme">si.scpet.stefetnitek</string>
+</resources>
