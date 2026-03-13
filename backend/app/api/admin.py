@@ -106,8 +106,8 @@ async def start_group(
     group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(404, "Group not found")
-    group.has_started = True
-    group.started_at = datetime.utcnow()
+    group.has_started = True  # type: ignore[assignment]
+    group.started_at = datetime.utcnow()  # type: ignore[assignment]
     await db.commit()
     await manager.broadcast_group_status(
         group_id, "started", {"started_at": group.started_at.isoformat()}
@@ -123,8 +123,8 @@ async def finish_group(
     group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(404, "Group not found")
-    group.has_finished = True
-    group.finished_at = datetime.utcnow()
+    group.has_finished = True  # type: ignore[assignment]
+    group.finished_at = datetime.utcnow()  # type: ignore[assignment]
     await db.commit()
     await manager.broadcast_group_status(
         group_id, "finished", {"finished_at": group.finished_at.isoformat()}

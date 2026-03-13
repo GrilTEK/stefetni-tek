@@ -33,7 +33,7 @@ async def login(req: LoginRequest, response: Response):
 
         # Try individual account first
         if redis_client and req.identifier:
-            hashed = await redis_client.hget("photographer_accounts", req.identifier)
+            hashed = await redis_client.hget("photographer_accounts", req.identifier)  # type: ignore[misc]
             if hashed:
                 stored = hashed if isinstance(hashed, str) else hashed.decode()
                 if not pwd_context.verify(req.password, stored):

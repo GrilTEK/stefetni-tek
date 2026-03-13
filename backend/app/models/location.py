@@ -23,7 +23,7 @@ class LocationUpdate(Base):
     longitude = Column(Float, nullable=False)
     accuracy = Column(Float, nullable=True)  # GPS accuracy in meters
     altitude = Column(Float, nullable=True)
-    source = Column(Enum(LocationSource), default=LocationSource.gps)
+    source = Column(Enum(LocationSource), default=LocationSource.gps)  # type: ignore[var-annotated]
     device_id = Column(String(100), nullable=True)  # Which phone submitted
     submitted_by = Column(String(50), nullable=True)  # "participant" | "photographer"
     photographer_id = Column(String(100), nullable=True)

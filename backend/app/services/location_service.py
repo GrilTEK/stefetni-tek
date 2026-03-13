@@ -85,14 +85,14 @@ class LocationService:
         )
 
         # 3. Append to trail history
-        await self.redis.lpush(
+        await self.redis.lpush(  # type: ignore[misc]
             f"{HISTORY_PREFIX}{group_id}",
             json.dumps(
                 {"lat": latitude, "lng": longitude, "ts": loc.timestamp.isoformat()}
             ),
         )
-        await self.redis.ltrim(f"{HISTORY_PREFIX}{group_id}", 0, HISTORY_MAX_POINTS - 1)
-        await self.redis.expire(f"{HISTORY_PREFIX}{group_id}", 3600 * 8)
+        await self.redis.ltrim(f"{HISTORY_PREFIX}{group_id}", 0, HISTORY_MAX_POINTS - 1)  # type: ignore[misc]
+        await self.redis.expire(f"{HISTORY_PREFIX}{group_id}", 3600 * 8)  # type: ignore[misc]
 
         # 4. Broadcast via WebSocket
         await manager.broadcast_location_update(group_id, location_data)
@@ -144,7 +144,7 @@ class LocationService:
 
     async def get_group_trail(self, group_id: int) -> List[dict]:
         """Get recent trail points for a group."""
-        points = await self.redis.lrange(
+        points = await self.redis.lrange(  # type: ignore[misc]
             f"{HISTORY_PREFIX}{group_id}", 0, HISTORY_MAX_POINTS - 1
         )
         return [json.loads(p) for p in points]
@@ -158,7 +158,7 @@ class LocationService:
 
         groups_data = []
         for g in groups:
-            trail = await self.get_group_trail(g.id)
+            trail = await self.get_group_trail(int(g.id))
             groups_data.append(
                 {
                     "id": g.id,
