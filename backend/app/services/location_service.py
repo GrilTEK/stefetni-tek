@@ -24,7 +24,10 @@ def haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> fl
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lng2 - lng1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    )
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
@@ -84,7 +87,9 @@ class LocationService:
         # 3. Append to trail history
         await self.redis.lpush(
             f"{HISTORY_PREFIX}{group_id}",
-            json.dumps({"lat": latitude, "lng": longitude, "ts": loc.timestamp.isoformat()}),
+            json.dumps(
+                {"lat": latitude, "lng": longitude, "ts": loc.timestamp.isoformat()}
+            ),
         )
         await self.redis.ltrim(f"{HISTORY_PREFIX}{group_id}", 0, HISTORY_MAX_POINTS - 1)
         await self.redis.expire(f"{HISTORY_PREFIX}{group_id}", 3600 * 8)
@@ -97,13 +102,19 @@ class LocationService:
 
         return location_data
 
-    async def process_offline_batch(self, group_id: int, updates: list, device_id: str) -> int:
+    async def process_offline_batch(
+        self, group_id: int, updates: list, device_id: str
+    ) -> int:
         """Process a batch of offline location updates in chronological order."""
         updates_sorted = sorted(updates, key=lambda x: x.get("timestamp", ""))
         count = 0
         for update in updates_sorted:
             try:
-                ts = datetime.fromisoformat(update["timestamp"]) if "timestamp" in update else None
+                ts = (
+                    datetime.fromisoformat(update["timestamp"])
+                    if "timestamp" in update
+                    else None
+                )
                 await self.process_location_update(
                     group_id=group_id,
                     latitude=update["lat"],
@@ -133,7 +144,9 @@ class LocationService:
 
     async def get_group_trail(self, group_id: int) -> List[dict]:
         """Get recent trail points for a group."""
-        points = await self.redis.lrange(f"{HISTORY_PREFIX}{group_id}", 0, HISTORY_MAX_POINTS - 1)
+        points = await self.redis.lrange(
+            f"{HISTORY_PREFIX}{group_id}", 0, HISTORY_MAX_POINTS - 1
+        )
         return [json.loads(p) for p in points]
 
     async def get_full_state(self) -> dict:
@@ -146,18 +159,20 @@ class LocationService:
         groups_data = []
         for g in groups:
             trail = await self.get_group_trail(g.id)
-            groups_data.append({
-                "id": g.id,
-                "number": g.number,
-                "name": g.name,
-                "color": g.color,
-                "member_count": g.member_count,
-                "has_started": g.has_started,
-                "has_finished": g.has_finished,
-                "started_at": g.started_at.isoformat() if g.started_at else None,
-                "location": locations.get(g.id),
-                "trail": trail,
-            })
+            groups_data.append(
+                {
+                    "id": g.id,
+                    "number": g.number,
+                    "name": g.name,
+                    "color": g.color,
+                    "member_count": g.member_count,
+                    "has_started": g.has_started,
+                    "has_finished": g.has_finished,
+                    "started_at": g.started_at.isoformat() if g.started_at else None,
+                    "location": locations.get(g.id),
+                    "trail": trail,
+                }
+            )
 
         return {"groups": groups_data}
 
@@ -194,7 +209,9 @@ class LocationService:
                     group_name=f"Skupina {group.number} – {group.name}",
                 )
 
-    async def update_photographer_location(self, photographer_id: str, lat: float, lng: float):
+    async def update_photographer_location(
+        self, photographer_id: str, lat: float, lng: float
+    ):
         """Cache photographer's current position."""
         await self.redis.setex(
             f"photographer_location:{photographer_id}",

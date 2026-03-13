@@ -57,7 +57,9 @@ async def list_groups(db: AsyncSession = Depends(get_db), _=Depends(require_admi
 
 
 @router.post("/groups")
-async def create_group(data: GroupCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def create_group(
+    data: GroupCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)
+):
     group = Group(
         name=data.name,
         number=data.number,
@@ -69,12 +71,19 @@ async def create_group(data: GroupCreate, db: AsyncSession = Depends(get_db), _=
     db.add(group)
     await db.commit()
     await db.refresh(group)
-    await manager.broadcast_admin_event({"type": "group_created", "group": _group_to_dict(group)})
+    await manager.broadcast_admin_event(
+        {"type": "group_created", "group": _group_to_dict(group)}
+    )
     return _group_to_dict(group)
 
 
 @router.patch("/groups/{group_id}")
-async def update_group(group_id: int, data: GroupUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def update_group(
+    group_id: int,
+    data: GroupUpdate,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_admin),
+):
     result = await db.execute(select(Group).where(Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
@@ -83,12 +92,16 @@ async def update_group(group_id: int, data: GroupUpdate, db: AsyncSession = Depe
         setattr(group, field, val)
     await db.commit()
     await db.refresh(group)
-    await manager.broadcast_admin_event({"type": "group_updated", "group": _group_to_dict(group)})
+    await manager.broadcast_admin_event(
+        {"type": "group_updated", "group": _group_to_dict(group)}
+    )
     return _group_to_dict(group)
 
 
 @router.post("/groups/{group_id}/start")
-async def start_group(group_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def start_group(
+    group_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)
+):
     result = await db.execute(select(Group).where(Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
@@ -96,12 +109,16 @@ async def start_group(group_id: int, db: AsyncSession = Depends(get_db), _=Depen
     group.has_started = True
     group.started_at = datetime.utcnow()
     await db.commit()
-    await manager.broadcast_group_status(group_id, "started", {"started_at": group.started_at.isoformat()})
+    await manager.broadcast_group_status(
+        group_id, "started", {"started_at": group.started_at.isoformat()}
+    )
     return {"ok": True}
 
 
 @router.post("/groups/{group_id}/finish")
-async def finish_group(group_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def finish_group(
+    group_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)
+):
     result = await db.execute(select(Group).where(Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
@@ -109,12 +126,16 @@ async def finish_group(group_id: int, db: AsyncSession = Depends(get_db), _=Depe
     group.has_finished = True
     group.finished_at = datetime.utcnow()
     await db.commit()
-    await manager.broadcast_group_status(group_id, "finished", {"finished_at": group.finished_at.isoformat()})
+    await manager.broadcast_group_status(
+        group_id, "finished", {"finished_at": group.finished_at.isoformat()}
+    )
     return {"ok": True}
 
 
 @router.delete("/groups/{group_id}")
-async def delete_group(group_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def delete_group(
+    group_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)
+):
     result = await db.execute(select(Group).where(Group.id == group_id))
     group = result.scalar_one_or_none()
     if not group:
@@ -139,7 +160,12 @@ async def get_event(db: AsyncSession = Depends(get_db), _=Depends(require_admin)
 
 
 @router.patch("/event/{event_id}")
-async def update_event(event_id: int, data: EventUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+async def update_event(
+    event_id: int,
+    data: EventUpdate,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_admin),
+):
     result = await db.execute(select(Event).where(Event.id == event_id))
     event = result.scalar_one_or_none()
     if not event:
@@ -149,24 +175,44 @@ async def update_event(event_id: int, data: EventUpdate, db: AsyncSession = Depe
     await db.commit()
     await db.refresh(event)
     if data.route_waypoints is not None:
-        await manager.broadcast_to_all({
-            "type": "route_updated",
-            "waypoints": event.route_waypoints or [],
-        })
+        await manager.broadcast_to_all(
+            {
+                "type": "route_updated",
+                "waypoints": event.route_waypoints or [],
+            }
+        )
     return _event_to_dict(event)
 
 
 @router.get("/stats")
 async def get_stats(db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
     from sqlalchemy import func
+
     groups_total = (await db.execute(select(func.count()).select_from(Group))).scalar()
-    groups_active = (await db.execute(select(func.count()).select_from(Group).where(Group.is_active))).scalar()
-    groups_started = (await db.execute(select(func.count()).select_from(Group).where(Group.has_started))).scalar()
-    groups_finished = (await db.execute(select(func.count()).select_from(Group).where(Group.has_finished))).scalar()
-    loc_count = (await db.execute(select(func.count()).select_from(LocationUpdate))).scalar()
+    groups_active = (
+        await db.execute(select(func.count()).select_from(Group).where(Group.is_active))
+    ).scalar()
+    groups_started = (
+        await db.execute(
+            select(func.count()).select_from(Group).where(Group.has_started)
+        )
+    ).scalar()
+    groups_finished = (
+        await db.execute(
+            select(func.count()).select_from(Group).where(Group.has_finished)
+        )
+    ).scalar()
+    loc_count = (
+        await db.execute(select(func.count()).select_from(LocationUpdate))
+    ).scalar()
     ws_stats = manager.get_stats()
     return {
-        "groups": {"total": groups_total, "active": groups_active, "started": groups_started, "finished": groups_finished},
+        "groups": {
+            "total": groups_total,
+            "active": groups_active,
+            "started": groups_started,
+            "finished": groups_finished,
+        },
         "location_updates": loc_count,
         "websocket": ws_stats,
     }
@@ -174,21 +220,30 @@ async def get_stats(db: AsyncSession = Depends(get_db), _=Depends(require_admin)
 
 def _group_to_dict(g: Group) -> dict:
     return {
-        "id": g.id, "number": g.number, "name": g.name, "color": g.color,
-        "member_count": g.member_count, "is_active": g.is_active,
-        "has_started": g.has_started, "has_finished": g.has_finished,
+        "id": g.id,
+        "number": g.number,
+        "name": g.name,
+        "color": g.color,
+        "member_count": g.member_count,
+        "is_active": g.is_active,
+        "has_started": g.has_started,
+        "has_finished": g.has_finished,
         "started_at": g.started_at.isoformat() if g.started_at else None,
         "finished_at": g.finished_at.isoformat() if g.finished_at else None,
-        "join_code": g.join_code, "notes": g.notes,
+        "join_code": g.join_code,
+        "notes": g.notes,
     }
 
 
 def _event_to_dict(e: Event) -> dict:
     return {
-        "id": e.id, "name": e.name, "is_active": e.is_active,
+        "id": e.id,
+        "name": e.name,
+        "is_active": e.is_active,
         "started_at": e.started_at.isoformat() if e.started_at else None,
         "route_waypoints": e.route_waypoints or [],
-        "map_center_lat": e.map_center_lat, "map_center_lng": e.map_center_lng,
+        "map_center_lat": e.map_center_lat,
+        "map_center_lng": e.map_center_lng,
         "map_zoom": e.map_zoom,
         "photographer_alert_distance": e.photographer_alert_distance,
         "ble_beacons": e.ble_beacons or [],
@@ -207,19 +262,29 @@ async def get_photographers(redis=Depends(get_redis), _=Depends(require_admin)):
             data = await redis.get(key)
             if data:
                 import json as _json
+
                 loc = _json.loads(data)
-                connected.append({"id": pid, "online": False, "last_seen": loc.get("ts")})
+                connected.append(
+                    {"id": pid, "online": False, "last_seen": loc.get("ts")}
+                )
     pw = await redis.get("photographer_password") or "foto2024"
-    return {"photographers": connected, "password": pw, "connected_count": len(manager.photographers)}
+    return {
+        "photographers": connected,
+        "password": pw,
+        "connected_count": len(manager.photographers),
+    }
 
 
 @router.patch("/photographers/password")
-async def set_photographer_password(data: dict, redis=Depends(get_redis), _=Depends(require_admin)):
+async def set_photographer_password(
+    data: dict, redis=Depends(get_redis), _=Depends(require_admin)
+):
     new_pw = data.get("password", "").strip()
     if len(new_pw) < 4:
         raise HTTPException(400, "Geslo mora imeti vsaj 4 znake")
     await redis.set("photographer_password", new_pw)
     from app.core.auth import ROLES
+
     ROLES["photographer"] = new_pw
     return {"ok": True}
 
@@ -230,7 +295,9 @@ class PhotographerAccountCreate(BaseModel):
 
 
 @router.get("/photographers/accounts")
-async def list_photographer_accounts(redis=Depends(get_redis), _=Depends(require_admin)):
+async def list_photographer_accounts(
+    redis=Depends(get_redis), _=Depends(require_admin)
+):
     """List all individual photographer accounts."""
     raw = await redis.hgetall("photographer_accounts")
     names = list(raw.keys()) if raw else []
@@ -242,20 +309,25 @@ async def list_photographer_accounts(redis=Depends(get_redis), _=Depends(require
 
 
 @router.post("/photographers/accounts")
-async def create_photographer_account(data: PhotographerAccountCreate, redis=Depends(get_redis), _=Depends(require_admin)):
+async def create_photographer_account(
+    data: PhotographerAccountCreate, redis=Depends(get_redis), _=Depends(require_admin)
+):
     """Create a new individual photographer account."""
     name = data.name.strip()
     password = data.password.strip()
     if not name or len(password) < 4:
         raise HTTPException(400, "Ime je obvezno in geslo mora imeti vsaj 4 znake")
     from app.core.auth import pwd_context as _ctx
+
     hashed = _ctx.hash(password)
     await redis.hset("photographer_accounts", name, hashed)
     return {"ok": True, "name": name}
 
 
 @router.delete("/photographers/accounts/{name}")
-async def delete_photographer_account(name: str, redis=Depends(get_redis), _=Depends(require_admin)):
+async def delete_photographer_account(
+    name: str, redis=Depends(get_redis), _=Depends(require_admin)
+):
     """Delete an individual photographer account."""
     deleted = await redis.hdel("photographer_accounts", name)
     if not deleted:
@@ -264,7 +336,9 @@ async def delete_photographer_account(name: str, redis=Depends(get_redis), _=Dep
 
 
 @router.patch("/photographers/accounts/{name}/password")
-async def change_photographer_account_password(name: str, data: dict, redis=Depends(get_redis), _=Depends(require_admin)):
+async def change_photographer_account_password(
+    name: str, data: dict, redis=Depends(get_redis), _=Depends(require_admin)
+):
     """Change password for a specific photographer account."""
     new_pw = data.get("password", "").strip()
     if len(new_pw) < 4:
@@ -273,6 +347,7 @@ async def change_photographer_account_password(name: str, data: dict, redis=Depe
     if not exists:
         raise HTTPException(404, "Account not found")
     from app.core.auth import pwd_context as _ctx
+
     hashed = _ctx.hash(new_pw)
     await redis.hset("photographer_accounts", name, hashed)
     return {"ok": True}

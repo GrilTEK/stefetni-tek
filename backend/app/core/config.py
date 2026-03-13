@@ -3,7 +3,9 @@ from typing import List
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql+asyncpg://stefan:changeme@localhost:5432/stefetnitek"
+    DATABASE_URL: str = (
+        "postgresql+asyncpg://stefan:changeme@localhost:5432/stefetnitek"
+    )
     REDIS_URL: str = "redis://localhost:6379"
     SECRET_KEY: str = "supersecretkey_change_in_production"
     ADMIN_PASSWORD: str = "admin123"

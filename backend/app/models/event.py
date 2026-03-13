@@ -24,7 +24,9 @@ class Event(Base):
     photographer_alert_distance = Column(Float, default=300.0)
 
     # BLE beacon config
-    ble_beacons = Column(JSON, default=list)  # [{uuid, name, lat, lng, checkpoint_name}]
+    ble_beacons = Column(
+        JSON, default=list
+    )  # [{uuid, name, lat, lng, checkpoint_name}]
 
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

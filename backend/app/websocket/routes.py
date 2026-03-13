@@ -22,7 +22,9 @@ async def ws_live(websocket: WebSocket):
             state = await service.get_full_state()
         await manager.broadcast_full_state(websocket, state)
         # Broadcast updated viewer count to all viewers
-        await manager.broadcast_to_all({"type": "viewer_count", "count": len(manager.viewers)})
+        await manager.broadcast_to_all(
+            {"type": "viewer_count", "count": len(manager.viewers)}
+        )
 
         while True:
             # Viewers just receive, we keep connection alive via ping
@@ -32,7 +34,9 @@ async def ws_live(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect_viewer(websocket)
         # Broadcast updated viewer count after disconnect
-        await manager.broadcast_to_all({"type": "viewer_count", "count": len(manager.viewers)})
+        await manager.broadcast_to_all(
+            {"type": "viewer_count", "count": len(manager.viewers)}
+        )
 
 
 @router.websocket("/ws/admin")
@@ -65,7 +69,9 @@ async def ws_admin(websocket: WebSocket, token: str = Query(default=None)):
 
 
 @router.websocket("/ws/photographer/{photographer_id}")
-async def ws_photographer(websocket: WebSocket, photographer_id: str, token: str = Query(default=None)):
+async def ws_photographer(
+    websocket: WebSocket, photographer_id: str, token: str = Query(default=None)
+):
     """Photographer WebSocket — receives group proximity alerts."""
     if not token:
         token = websocket.cookies.get("st_token")
@@ -102,6 +108,7 @@ async def ws_photographer(websocket: WebSocket, photographer_id: str, token: str
                         # If they're pinning a group location
                         if "group_id" in msg:
                             from app.models.location import LocationSource
+
                             await service.process_location_update(
                                 group_id=msg["group_id"],
                                 latitude=msg["lat"],
@@ -117,13 +124,19 @@ async def ws_photographer(websocket: WebSocket, photographer_id: str, token: str
 
 
 @router.websocket("/ws/group/{group_id}")
-async def ws_group(websocket: WebSocket, group_id: int, token: str = Query(default=None)):
+async def ws_group(
+    websocket: WebSocket, group_id: int, token: str = Query(default=None)
+):
     """Participant group WebSocket — receives group status updates."""
     if not token:
         token = websocket.cookies.get("st_token")
     try:
         payload = verify_token(token) if token else None
-        if not payload or payload.get("role") != "participant" or payload.get("group_id") != group_id:
+        if (
+            not payload
+            or payload.get("role") != "participant"
+            or payload.get("group_id") != group_id
+        ):
             await websocket.close(code=4003)
             return
     except Exception:

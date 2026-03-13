@@ -39,7 +39,9 @@ class ConnectionManager:
         if group_id not in self.participants:
             self.participants[group_id] = set()
         self.participants[group_id].add(ws)
-        logger.info(f"Participant connected to group {group_id}. Group size: {len(self.participants[group_id])}")
+        logger.info(
+            f"Participant connected to group {group_id}. Group size: {len(self.participants[group_id])}"
+        )
 
     def disconnect_viewer(self, ws: WebSocket):
         self.viewers.discard(ws)
@@ -71,9 +73,16 @@ class ConnectionManager:
         await self._broadcast_to_set(self.admins, msg)
         await self._broadcast_to_dict(self.photographers, msg)
 
-    async def broadcast_group_status(self, group_id: int, status: str, data: dict = None):
+    async def broadcast_group_status(
+        self, group_id: int, status: str, data: dict = None
+    ):
         """Broadcast group started/finished/paused etc."""
-        msg = {"type": "group_status", "group_id": group_id, "status": status, **(data or {})}
+        msg = {
+            "type": "group_status",
+            "group_id": group_id,
+            "status": status,
+            **(data or {}),
+        }
         await self._broadcast_to_set(self.viewers, msg)
         await self._broadcast_to_set(self.admins, msg)
         await self._broadcast_to_dict(self.photographers, msg)
@@ -90,7 +99,9 @@ class ConnectionManager:
         await self._broadcast_to_set(self.admins, data)
         await self._broadcast_to_dict(self.photographers, data)
 
-    async def alert_photographer(self, photographer_id: str, group_id: int, distance: float, group_name: str):
+    async def alert_photographer(
+        self, photographer_id: str, group_id: int, distance: float, group_name: str
+    ):
         """Send proximity alert to a specific photographer."""
         if photographer_id in self.photographers:
             msg = {
@@ -128,7 +139,9 @@ class ConnectionManager:
             "admins": len(self.admins),
             "photographers": len(self.photographers),
             "participant_groups": len(self.participants),
-            "total_participant_devices": sum(len(s) for s in self.participants.values()),
+            "total_participant_devices": sum(
+                len(s) for s in self.participants.values()
+            ),
         }
 
 

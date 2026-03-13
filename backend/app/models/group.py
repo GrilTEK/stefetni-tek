@@ -21,4 +21,6 @@ class Group(Base):
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    locations = relationship("LocationUpdate", back_populates="group", cascade="all, delete-orphan")
+    locations = relationship(
+        "LocationUpdate", back_populates="group", cascade="all, delete-orphan"
+    )

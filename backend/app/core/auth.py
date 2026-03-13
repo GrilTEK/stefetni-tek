@@ -19,7 +19,9 @@ ROLES = {
 
 def create_token(data: dict, expires_delta: timedelta = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = datetime.utcnow() + (
+        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
 
@@ -29,7 +31,9 @@ def verify_token(token: str) -> dict:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
         return payload
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
 
 
 def set_auth_cookie(response, token: str, max_age: int = 30 * 24 * 3600):
@@ -48,7 +52,9 @@ def clear_auth_cookie(response):
 
 
 def require_role(*roles: str):
-    async def dependency(request: Request, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    async def dependency(
+        request: Request, credentials: HTTPAuthorizationCredentials = Depends(security)
+    ):
         token = None
         if credentials:
             token = credentials.credentials
@@ -60,6 +66,7 @@ def require_role(*roles: str):
         if payload.get("role") not in roles:
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return payload
+
     return dependency
 
 

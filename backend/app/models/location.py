@@ -16,7 +16,9 @@ class LocationUpdate(Base):
     __tablename__ = "location_updates"
 
     id = Column(Integer, primary_key=True, index=True)
-    group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
+    group_id = Column(
+        Integer, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False
+    )
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     accuracy = Column(Float, nullable=True)  # GPS accuracy in meters

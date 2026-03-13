@@ -69,7 +69,9 @@ async def update_location(
     elif role in ("photographer", "admin"):
         # Photographer updates own location + optionally group location
         photographer_id = token.get("photographer_id", "unknown")
-        await service.update_photographer_location(photographer_id, payload.lat, payload.lng)
+        await service.update_photographer_location(
+            photographer_id, payload.lat, payload.lng
+        )
         return {"ok": True}
 
     raise HTTPException(status_code=403, detail="Not allowed")
@@ -110,7 +112,9 @@ async def sync_offline(
 ):
     """Sync offline location batch from participant device."""
     if token.get("role") != "participant":
-        raise HTTPException(status_code=403, detail="Only participants can sync offline data")
+        raise HTTPException(
+            status_code=403, detail="Only participants can sync offline data"
+        )
 
     group_id = token.get("group_id")
     device_id = token.get("device_id", "unknown")
