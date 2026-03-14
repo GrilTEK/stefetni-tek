@@ -41,3 +41,15 @@ stefetni-tek-final/
 
 # Claude Code session data
 .claude/
+
+# Mobile / Capacitor
+mobile/node_modules/
+mobile/www
+mobile/android/app/build/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/ios/App/Pods/
+mobile/ios/App/App.xcworkspace/xcuserdata/
+*.apk
+*.aab
+*.ipa

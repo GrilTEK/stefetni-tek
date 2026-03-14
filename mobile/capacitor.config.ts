@@ -1,34 +1,32 @@
-import { CapacitorConfig } from "@capacitor/cli";
+import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: "si.scpet.stefetnitek",
-  appName: "Štafetni Tek",
-  webDir: "../frontend",
-  server: {
-    androidScheme: "https",
-  },
+  appId:   'si.scpet.stefetnitek',
+  appName: 'Štafetni Tek',
+  webDir:  'www',
+
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
-      backgroundColor: "#050a07",
-      androidSplashResourceName: "splash",
+      launchAutoHide: true,
+      backgroundColor: '#050a07',
+      androidSplashResourceName: 'splash',
       showSpinner: false,
     },
     StatusBar: {
-      style: "Dark",
-      backgroundColor: "#050a07",
+      style: 'DARK',
+      backgroundColor: '#050a07',
     },
     LocalNotifications: {
-      smallIcon: "ic_stat_icon_config_sample",
-      iconColor: "#22c55e",
-      sound: "beep.wav",
+      smallIcon: 'ic_stat_notify',
+      iconColor: '#22c55e',
     },
     BluetoothLe: {
       displayStrings: {
-        scanning: "Iščem naprave…",
-        cancel: "Prekliči",
-        availableDevices: "Razpoložljive naprave",
-        noDeviceFound: "Ni naprav",
+        scanning: 'Iščem naprave…',
+        cancel: 'Prekliči',
+        availableDevices: 'Naprave v bližini',
+        noDeviceFound: 'Ni naprav',
       },
     },
   },

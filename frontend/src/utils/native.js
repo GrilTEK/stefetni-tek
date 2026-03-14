@@ -1,172 +1,186 @@
+// frontend/src/utils/native.js
+// Capacitor native shim – safe no-op when loaded in any browser.
+// Load this BEFORE shared.js and leaflet on pages that need native APIs.
+// Exports: window.STNative
 (function () {
-  "use strict";
+  'use strict';
 
-  // Lazy plugin getter — avoids timing issues at eval time
-  function plugin(name) {
-    return window.Capacitor?.Plugins?.[name];
-  }
+  // ── Detection ──────────────────────────────────────────────────────────────
+  const isNative = () => !!(window.Capacitor && window.Capacitor.isNativePlatform());
+  const getPlatform = () => window.Capacitor?.getPlatform() ?? 'web';
 
-  function isNative() {
-    return !!window.Capacitor?.isNativePlatform?.();
-  }
+  // Lazy plugin getter – safe to call before DOMContentLoaded
+  const plugin = (name) => window.Capacitor?.Plugins?.[name];
+
+  // ── API / WS base URLs ─────────────────────────────────────────────────────
+  const PRODUCTION_URL = 'https://tek.griltek.si';
 
   function resolveApiBase() {
-    return isNative() ? "https://tek.griltek.si" : null;
+    return isNative() ? PRODUCTION_URL : null;
   }
-
   function resolveWsBase() {
-    return isNative() ? "wss://tek.griltek.si" : null;
+    return isNative() ? PRODUCTION_URL.replace(/^https/, 'wss').replace(/^http/, 'ws') : null;
   }
 
-  // ── GPS Tracker ──────────────────────────────────────────────────────────────
+  // ── GPS tracker ────────────────────────────────────────────────────────────
   function NativeGPSTracker(onLocation, onError) {
-    var watchId = null;
-
-    this.start = function () {
-      var Geo = plugin("Geolocation");
-      if (!Geo) { onError?.("Geolocation plugin ni na voljo"); return; }
-      Geo.requestPermissions().then(function () {
-        return Geo.watchPosition(
-          { enableHighAccuracy: true, maximumAge: 5000 },
-          function (pos, err) {
-            if (err) { onError?.(err.message || "GPS napaka"); return; }
-            if (!pos) return;
-            var c = pos.coords;
-            onLocation({
-              lat: c.latitude,
-              lng: c.longitude,
-              accuracy: c.accuracy,
-              altitude: c.altitude,
-              timestamp: new Date().toISOString(),
-              source: "gps",
-            });
-          }
-        );
-      }).then(function (id) {
-        watchId = id;
-      }).catch(function (e) {
-        onError?.(e.message || "GPS napaka");
-      });
-    };
-
-    this.stop = function () {
-      var Geo = plugin("Geolocation");
-      if (watchId !== null && Geo) {
-        Geo.clearWatch({ id: watchId });
-        watchId = null;
-      }
-    };
-
-    Object.defineProperty(this, "active", {
-      get: function () { return watchId !== null; },
-    });
+    this._onLocation = onLocation;
+    this._onError    = onError;
+    this._watchId    = null;
   }
 
-  // ── BLE Scanner ──────────────────────────────────────────────────────────────
+  NativeGPSTracker.prototype.start = async function () {
+    const Geo = plugin('Geolocation');
+    if (!Geo) { this._onError?.('Geolocation plugin ni na voljo'); return; }
+    try {
+      const perm = await Geo.requestPermissions({ permissions: ['location'] });
+      if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
+        this._onError?.('Dostop do GPS zavrnjen – preveri dovoljenja v nastavitvah');
+        return;
+      }
+    } catch (_) {}
+    try {
+      this._watchId = await Geo.watchPosition(
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
+        (pos, err) => {
+          if (err) { this._onError?.(err.message || 'GPS napaka'); return; }
+          const { latitude: lat, longitude: lng, accuracy, altitude } = pos.coords;
+          this._onLocation({ lat, lng, accuracy, altitude,
+            timestamp: new Date().toISOString(), source: 'gps' });
+        }
+      );
+    } catch (e) {
+      this._onError?.(e.message || 'GPS napaka');
+    }
+  };
+
+  NativeGPSTracker.prototype.stop = async function () {
+    const Geo = plugin('Geolocation');
+    if (this._watchId !== null && Geo) {
+      await Geo.clearWatch({ id: this._watchId }).catch(() => {});
+      this._watchId = null;
+    }
+  };
+
+  Object.defineProperty(NativeGPSTracker.prototype, 'active', {
+    get: function () { return this._watchId !== null; }
+  });
+
+  // ── BLE scanner ────────────────────────────────────────────────────────────
   function NativeBLEScanner(onBeacon) {
-    var scanning = false;
-
-    this.isSupported = function () {
-      return isNative() && !!plugin("BluetoothLe");
-    };
-
-    this.startScan = function () {
-      var BLE = plugin("BluetoothLe");
-      if (!BLE) return Promise.resolve(false);
-      return BLE.initialize()
-        .then(function () { return BLE.requestPermissions(); })
-        .then(function () {
-          return BLE.requestLEScan({ allowDuplicates: true }, function (result) {
-            if (!result) return;
-            onBeacon({
-              id: result.device?.deviceId || result.deviceId || "unknown",
-              name: result.localName || result.device?.name || null,
-              rssi: result.rssi ?? null,
-              source: "ble-native",
-            });
-          });
-        })
-        .then(function () { scanning = true; return true; })
-        .catch(function () { return false; });
-    };
-
-    this.stopScan = function () {
-      var BLE = plugin("BluetoothLe");
-      if (BLE && scanning) {
-        BLE.stopLEScan().catch(function () {});
-        scanning = false;
-      }
-    };
-
-    Object.defineProperty(this, "active", {
-      get: function () { return scanning; },
-    });
+    this._onBeacon = onBeacon;
+    this._scanning = false;
   }
 
-  // ── Notifications ────────────────────────────────────────────────────────────
-  function nativeRequestNotifications() {
-    var LN = plugin("LocalNotifications");
-    if (!LN) return Promise.resolve();
-    return LN.requestPermissions();
-  }
+  NativeBLEScanner.prototype.isSupported = function () {
+    return isNative() && !!plugin('BluetoothLe');
+  };
 
-  function nativeNotify(title, body) {
-    var LN = plugin("LocalNotifications");
+  NativeBLEScanner.prototype.startScan = async function () {
+    const BLE = plugin('BluetoothLe');
+    if (!BLE) return false;
+    try { await BLE.initialize(); } catch (e) { console.warn('[BLE] init:', e); return false; }
+    try {
+      const perm = await BLE.requestPermissions();
+      if (perm.bluetooth !== 'granted') return false;
+    } catch (_) {}
+    this._scanning = true;
+    try {
+      await BLE.requestLEScan({ allowDuplicates: true }, (result) => {
+        if (!this._scanning) return;
+        const name = result.device?.name || result.localName || null;
+        const rssi = result.rssi ?? null;
+        const id   = result.device?.deviceId || '';
+        this._onBeacon?.({ id, name: name || id.slice(-8), rssi,
+          source: 'ble-native', rawName: name });
+      });
+      return true;
+    } catch (e) {
+      console.warn('[BLE] scan:', e);
+      this._scanning = false;
+      return false;
+    }
+  };
+
+  NativeBLEScanner.prototype.stopScan = async function () {
+    this._scanning = false;
+    const BLE = plugin('BluetoothLe');
+    if (BLE) await BLE.stopLEScan().catch(() => {});
+  };
+
+  // ── Notifications ──────────────────────────────────────────────────────────
+  async function nativeRequestNotifications() {
+    const LN = plugin('LocalNotifications');
     if (!LN) return;
-    LN.schedule({
-      notifications: [
-        {
-          title: title,
-          body: body,
-          id: Math.floor(Math.random() * 100000),
-          schedule: { at: new Date(Date.now() + 100) },
-        },
-      ],
-    }).catch(function () {});
+    try { await LN.requestPermissions(); } catch (_) {}
   }
 
-  // ── Clipboard ────────────────────────────────────────────────────────────────
-  function nativeClipboardWrite(text) {
-    var CB = plugin("Clipboard");
-    if (!CB) return Promise.resolve();
-    return CB.write({ string: text });
+  let _notifId = 1;
+  async function nativeNotify(title, body) {
+    const LN = plugin('LocalNotifications');
+    if (!LN) return;
+    try {
+      await LN.schedule({ notifications: [{ id: _notifId++, title, body, sound: null }] });
+    } catch (e) { console.warn('[Notify]', e); }
   }
 
-  // ── App lifecycle ────────────────────────────────────────────────────────────
+  // ── Clipboard ─────────────────────────────────────────────────────────────
+  async function nativeClipboardWrite(text) {
+    const CB = plugin('Clipboard');
+    if (!CB) throw new Error('Clipboard plugin ni na voljo');
+    await CB.write({ string: text });
+  }
+
+  // ── App lifecycle ──────────────────────────────────────────────────────────
   function registerAppListeners() {
-    var AppPlugin = plugin("App");
-    if (!AppPlugin) return;
-    AppPlugin.addListener("backButton", function () {
-      // Default: do nothing (let the webview handle history)
-      // Override in page scripts if needed
+    const App = plugin('App');
+    if (!App) return;
+    App.addListener('backButton', ({ canGoBack }) => {
+      if (!canGoBack) App.exitApp();
     });
   }
 
-  // ── Splash screen ────────────────────────────────────────────────────────────
-  function hideSplash() {
-    var SS = plugin("SplashScreen");
-    if (SS) SS.hide().catch(function () {});
+  // ── Splash / status bar ────────────────────────────────────────────────────
+  async function hideSplash() {
+    const SP = plugin('SplashScreen');
+    if (SP) await SP.hide().catch(() => {});
   }
 
-  // ── Auto-init when native ────────────────────────────────────────────────────
+  // ── Preferences (secure-ish key-value store, falls back to localStorage) ──
+  const Preferences = {
+    async get(key) {
+      const P = plugin('Preferences');
+      if (!P) return localStorage.getItem(key);
+      const { value } = await P.get({ key });
+      return value;
+    },
+    async set(key, value) {
+      const P = plugin('Preferences');
+      if (!P) { localStorage.setItem(key, value); return; }
+      await P.set({ key, value: String(value) });
+    },
+    async remove(key) {
+      const P = plugin('Preferences');
+      if (!P) { localStorage.removeItem(key); return; }
+      await P.remove({ key });
+    },
+  };
+
+  // ── Public API ─────────────────────────────────────────────────────────────
+  window.STNative = {
+    isNative, getPlatform,
+    resolveApiBase, resolveWsBase,
+    NativeGPSTracker, NativeBLEScanner,
+    nativeNotify, nativeRequestNotifications, nativeClipboardWrite,
+    registerAppListeners, hideSplash,
+    Preferences,
+  };
+
+  // Auto-init when native
   if (isNative()) {
-    document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener('DOMContentLoaded', () => {
       hideSplash();
       registerAppListeners();
     });
   }
-
-  // ── Public API ───────────────────────────────────────────────────────────────
-  window.STNative = {
-    isNative: isNative,
-    resolveApiBase: resolveApiBase,
-    resolveWsBase: resolveWsBase,
-    NativeGPSTracker: NativeGPSTracker,
-    NativeBLEScanner: NativeBLEScanner,
-    nativeRequestNotifications: nativeRequestNotifications,
-    nativeNotify: nativeNotify,
-    nativeClipboardWrite: nativeClipboardWrite,
-    registerAppListeners: registerAppListeners,
-    hideSplash: hideSplash,
-  };
 })();
