@@ -221,6 +221,10 @@ jobs:
         run: npm ci
         working-directory: mobile
 
+      - name: Create www symlink
+        run: node scripts/symlink.js
+        working-directory: mobile
+
       - name: Capacitor sync
         run: npx cap sync android
         working-directory: mobile
